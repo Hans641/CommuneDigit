@@ -25,7 +25,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 480
 
     # CORS
-    allowed_origins: str = "http://localhost:5173,http://localhost:3000"
+    # Inclure ici les origines de développement courantes (5173, 3000, 8082)
+    allowed_origins: str = "http://localhost:5173,http://localhost:3000,http://localhost:8082"
 
     # SMS (Africa's Talking)
     at_api_key: str = ""
