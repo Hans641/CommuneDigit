@@ -1,0 +1,269 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+
+:root {
+  --primary-blue: #0062ff;
+  --bg-gradient: linear-gradient(135deg, #f0f4f8 0%, #d7e1ec 100%);
+  --card-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+  --input-bg: #ffffff;
+  --text-dark: #1e293b;
+  --text-light: #64748b;
+  --sidebar-width: 280px;
+}
+
+/* 1. Reset global */
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background-color: #f0f4f8;
+}
+
+/* 2. Styles de Connexion / Inscription (Auth) */
+.auth-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100vh;
+  background: var(--bg-gradient);
+}
+
+.auth-card {
+  background: white;
+  padding: 30px 40px;
+  border-radius: 28px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: var(--card-shadow);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+/* 3. STRUCTURE DU DASHBOARD (ADMIN) */
+.dashboard-container {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+}
+
+/* BARRE LATÉRALE */
+.sidebar {
+  width: var(--sidebar-width);
+  background-color: #1e1e2e;
+  color: white;
+  padding: 30px 20px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.sidebar-header h2 {
+  color: var(--primary-blue);
+  font-weight: 800;
+  font-size: 1.4rem;
+  margin-bottom: 40px;
+}
+
+.nav-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nav-item {
+  background: transparent;
+  border: none;
+  color: #a0aec0;
+  padding: 14px 18px;
+  text-align: left;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.nav-item:hover, .nav-item.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+/* CONTENU PRINCIPAL */
+.main-content {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 40px;
+  background-color: #f8fafc;
+}
+
+/* 4. TABLEAUX ET LISTES */
+.citizen-list-container {
+  background: white;
+  border-radius: 20px;
+  padding: 25px;
+  box-shadow: var(--card-shadow);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.admin-table th {
+  text-align: left;
+  padding: 15px;
+  border-bottom: 2px solid #f1f5f9;
+  color: var(--text-light);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.admin-table td {
+  padding: 18px 15px;
+  border-bottom: 1px solid #f1f5f9;
+  color: var(--text-dark);
+}
+
+/* 5. MISE À JOUR : BARRES DE RECHERCHE */
+.search-bar, 
+header input[type="text"],
+.table-header-actions input[type="text"] {
+  background-color: #ffffff !important; /* Correction : Fond blanc forcé */
+  color: var(--text-dark) !important;    /* Correction : Texte lisible */
+  border: 2px solid #f1f5f9 !important;  /* Bordure douce */
+  padding: 12px 20px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 400px;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.3s ease;
+  margin-bottom: 20px;
+}
+
+.search-bar:focus,
+header input[type="text"]:focus {
+  border-color: var(--primary-blue) !important;
+  box-shadow: 0 0 0 4px rgba(0, 98, 255, 0.1) !important;
+  background-color: #ffffff !important;
+}
+
+.search-bar::placeholder,
+header input[type="text"]::placeholder {
+  color: var(--text-light);
+  opacity: 0.7;
+}
+
+/* 6. BOUTONS GENERIQUES ET SUPPRESSION */
+.submit-btn {
+  width: 100%;
+  padding: 16px;
+  background: var(--primary-blue);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.delete-btn {
+  background: #fff5f5;
+  color: #ef4444;
+  border: 1px solid #fed7d7;
+  padding: 8px 15px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.delete-btn:hover {
+  background: #ef4444;
+  color: white;
+}
+
+/* 7. TYPOGRAPHIE DASHBOARD */
+h1 {
+  color: var(--text-dark);
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0 0 10px 0;
+  text-align: left;
+}
+
+.subtitle {
+  color: var(--text-light);
+  text-align: left;
+  margin-bottom: 30px;
+}
+
+.input-group {
+  margin-bottom: 18px;
+}
+
+.input-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  color: var(--text-dark);
+}
+
+.input-group input {
+  width: 100%;
+  padding: 12px 18px;
+  background: var(--input-bg);
+  border: 2px solid #f1f5f9;
+  border-radius: 14px;
+  font-size: 1rem;
+  color: var(--text-dark);
+}
+
+/* --- STYLES POUR LA GESTION DES TARIFS --- */
+
+/* Bouton d'ajout de document */
+.add-paper-btn {
+  background-color: var(--primary-blue) !important;
+  color: white !important;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 20px;
+  transition: background 0.3s ease;
+}
+
+.add-paper-btn:hover {
+  background-color: #0056e0 !important;
+}
+
+/* Note de conformité et alertes */
+.info-note {
+  background-color: #f0f7ff;
+  border-left: 4px solid var(--primary-blue);
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 30px;
+  color: var(--text-light);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.info-note strong {
+  color: var(--text-dark);
+}
+
+/* État vide (Aucun document trouvé) */
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-light);
+  font-style: italic;
+}
