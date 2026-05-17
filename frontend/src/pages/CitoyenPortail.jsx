@@ -4,6 +4,7 @@
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { citoyenAuthAPI, citoyenEspaceAPI } from '../services/api';
+import Icon from '../components/Icon';
 
 // ── Palette & tokens ──────────────────────────────────────────────
 const C = {
@@ -73,8 +74,8 @@ const StatusBadge = ({ statut }) => {
   const m = {
     'Soumise':      { bg: 'rgba(99,102,241,0.2)',  border: 'rgba(99,102,241,0.4)',  c: '#a5b4fc', txt: 'Soumise' },
     'En traitement':{ bg: 'rgba(245,158,11,0.2)',  border: 'rgba(245,158,11,0.4)',  c: '#fbbf24', txt: 'En traitement' },
-    'Approuvée':    { bg: 'rgba(16,185,129,0.2)',   border: 'rgba(16,185,129,0.4)',  c: '#34d399', txt: 'Approuvée ✓' },
-    'Prête':        { bg: 'rgba(16,185,129,0.25)',  border: 'rgba(16,185,129,0.5)',  c: '#10b981', txt: '✅ Prête' },
+    'Approuvée':    { bg: 'rgba(16,185,129,0.2)',   border: 'rgba(16,185,129,0.4)',  c: '#34d399', txt: 'Approuvée' },
+    'Prête':        { bg: 'rgba(16,185,129,0.25)',  border: 'rgba(16,185,129,0.5)',  c: '#10b981', txt: 'Prête' },
     'Rejetée':      { bg: 'rgba(239,68,68,0.15)',   border: 'rgba(239,68,68,0.3)',   c: '#fca5a5', txt: 'Rejetée' },
     'Brouillon':    { bg: 'rgba(255,255,255,0.08)', border: 'rgba(255,255,255,0.15)',c: '#94a3b8', txt: 'Brouillon' },
   };
@@ -126,7 +127,7 @@ function PageInscription({ onSuccess, onLogin }) {
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px' }}>
       <div style={{ textAlign: 'center', marginBottom: 40 }}>
-        <div style={{ fontSize: '3rem', marginBottom: 10 }}>🏛️</div>
+        <div style={{ fontSize: '3rem', marginBottom: 10 }}><Icon name="home" size={48} /></div>
         <h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: '1.8rem', fontWeight: 900, color: C.text, margin: 0 }}>
           Créer mon compte
         </h1>
@@ -144,7 +145,7 @@ function PageInscription({ onSuccess, onLogin }) {
                   background: step > i + 1 ? C.emerald : step === i + 1 ? `linear-gradient(135deg,${C.emerald},${C.teal})` : C.glass,
                   border: step === i + 1 ? 'none' : `1px solid ${C.glassBorder}`,
                   color: step >= i + 1 ? '#fff' : C.textMuted,
-                }}>{step > i + 1 ? '✓' : i + 1}</div>
+                }}>{step > i + 1 ? <Icon name="check" size={14} /> : i + 1}</div>
                 <span style={{ fontSize: '0.78rem', color: step === i + 1 ? C.text : C.textMuted, fontWeight: step === i + 1 ? 700 : 400 }}>{s}</span>
               </div>
               {i < 1 && <div style={{ width: 40, height: 1, background: step > 1 ? C.emerald : C.glassBorder, margin: '0 8px' }} />}
@@ -156,18 +157,18 @@ function PageInscription({ onSuccess, onLogin }) {
       <Glass style={{ padding: '32px 28px' }}>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           {step === 1 && <>
-            <Input label="Adresse email *" type="email" icon="📧" value={form.email} onChange={f('email')} placeholder="votre@email.mg" required />
-            <Input label="Mot de passe *" type="password" icon="🔒" value={form.password} onChange={f('password')} placeholder="Min. 6 caractères" required />
-            <Input label="Confirmer le mot de passe *" type="password" icon="🔒" value={form.confirm} onChange={f('confirm')} placeholder="Répétez le mot de passe" required />
+            <Input label="Adresse email *" type="email" icon={<Icon name="mail" size={16} />} value={form.email} onChange={f('email')} placeholder="votre@email.mg" required />
+            <Input label="Mot de passe *" type="password" icon={<Icon name="lock" size={16} />} value={form.password} onChange={f('password')} placeholder="Min. 6 caractères" required />
+            <Input label="Confirmer le mot de passe *" type="password" icon={<Icon name="lock" size={16} />} value={form.confirm} onChange={f('confirm')} placeholder="Répétez le mot de passe" required />
           </>}
 
           {step === 2 && <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <Input label="Nom *" icon="👤" value={form.nom} onChange={f('nom')} placeholder="NOM" required />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <Input label="Nom *" icon={<Icon name="user" size={16} />} value={form.nom} onChange={f('nom')} placeholder="NOM" required />
               <Input label="Prénom(s) *" value={form.prenom} onChange={f('prenom')} placeholder="Prénom" required />
             </div>
-            <Input label="Téléphone *" type="tel" icon="📱" value={form.telephone} onChange={f('telephone')} placeholder="+261 34 00 000 00" required />
-            <Input label="CIN (optionnel)" icon="🪪" value={form.cin} onChange={f('cin')} placeholder="Numéro CIN si disponible" />
+            <Input label="Téléphone *" type="tel" icon={<Icon name="phone" size={16} />} value={form.telephone} onChange={f('telephone')} placeholder="+261 34 00 000 00" required />
+            <Input label="CIN (optionnel)" icon={<Icon name="paperclip" size={16} />} value={form.cin} onChange={f('cin')} placeholder="Numéro CIN si disponible" />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label style={{ fontSize: '0.8rem', fontWeight: 600, color: C.textMuted }}>Fokontany *</label>
               <select value={form.fokontany_id} onChange={e => f('fokontany_id')(e.target.value)} required
@@ -176,7 +177,7 @@ function PageInscription({ onSuccess, onLogin }) {
                 {fokontanys.map(f => <option key={f.id} value={f.id} style={{ background: '#0d2137' }}>{f.nom}</option>)}
               </select>
             </div>
-            <Input label="Adresse" icon="📍" value={form.adresse} onChange={f('adresse')} placeholder="Adresse complète" />
+            <Input label="Adresse" icon={<Icon name="pin" size={16} />} value={form.adresse} onChange={f('adresse')} placeholder="Adresse complète" />
           </>}
 
           {err && <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '10px 14px', color: '#fca5a5', fontSize: '0.85rem' }}>{err}</div>}
@@ -184,7 +185,7 @@ function PageInscription({ onSuccess, onLogin }) {
           <div style={{ display: 'flex', gap: 10 }}>
             {step === 2 && <Btn variant="ghost" onClick={() => setStep(1)} style={{ width: 'auto', padding: '12px 20px' }}>← Retour</Btn>}
             <Btn type="submit" disabled={loading} style={{ flex: 1 }}>
-              {loading ? 'Création…' : step === 1 ? 'Continuer →' : 'Créer mon compte ✓'}
+              {loading ? 'Création…' : step === 1 ? 'Continuer →' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>Créer mon compte <Icon name="check" size={14} /></span>}
             </Btn>
           </div>
         </form>
@@ -223,7 +224,7 @@ function PageLogin({ onSuccess, onInscription }) {
   return (
     <div style={{ maxWidth: 420, margin: '0 auto', padding: '0 16px' }}>
       <div style={{ textAlign: 'center', marginBottom: 40 }}>
-        <div style={{ fontSize: '3rem', marginBottom: 10 }}>🏛️</div>
+        <div style={{ fontSize: '3rem', marginBottom: 10 }}><Icon name="home" size={48} /></div>
         <h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: '1.8rem', fontWeight: 900, color: C.text, margin: 0 }}>
           Mon espace citoyen
         </h1>
@@ -232,8 +233,8 @@ function PageLogin({ onSuccess, onInscription }) {
 
       <Glass style={{ padding: '32px 28px' }}>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <Input label="Email" type="email" icon="📧" value={email} onChange={setEmail} placeholder="votre@email.mg" required />
-          <Input label="Mot de passe" type="password" icon="🔒" value={password} onChange={setPassword} placeholder="Votre mot de passe" required />
+          <Input label="Email" type="email" icon={<Icon name="mail" size={16} />} value={email} onChange={setEmail} placeholder="votre@email.mg" required />
+          <Input label="Mot de passe" type="password" icon={<Icon name="lock" size={16} />} value={password} onChange={setPassword} placeholder="Votre mot de passe" required />
           {err && <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '10px 14px', color: '#fca5a5', fontSize: '0.85rem' }}>{err}</div>}
           <Btn type="submit" disabled={loading}>{loading ? 'Connexion…' : 'Se connecter →'}</Btn>
         </form>
@@ -306,7 +307,7 @@ function OngletProjets() {
             return (
               <Glass key={p.id} style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ fontSize: '2rem' }}>{icon}</div>
+                  <div style={{ fontSize: '2rem' }}>{typeof icon === 'string' && icon.startsWith('📋') ? <Icon name="file" size={28} /> : icon}</div>
                   <div style={{ background: ss.bg, border: `1px solid ${ss.dot}55`, color: ss.color, borderRadius: 99, padding: '3px 10px', fontSize: '0.72rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: ss.dot, display: 'inline-block' }} />
                     {p.statut}
@@ -318,7 +319,7 @@ function OngletProjets() {
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <Badge label={p.categorie} color={C.teal} />
-                  {p.fokontany && <Badge label={`📍 ${p.fokontany}`} color={C.indigo} />}
+                  {p.fokontany && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Icon name="pin" size={12} /><Badge label={p.fokontany} color={C.indigo} /></span>}
                 </div>
                 {p.budget_ar && (
                   <div style={{ fontSize: '0.82rem', color: C.textMuted }}>
@@ -412,7 +413,7 @@ function ModalDemande({ service, mesDemandes, onClose, onSuccess }) {
               {' · '}Délai : {service.delai_jours} jour(s)
             </div>
           </div>
-          <button onClick={onClose} style={{ background: C.glass, border: `1px solid ${C.glassBorder}`, color: C.textMuted, width: 34, height: 34, borderRadius: 10, cursor: 'pointer', fontSize: '1rem' }}>✕</button>
+          <button onClick={onClose} style={{ background: C.glass, border: `1px solid ${C.glassBorder}`, color: C.textMuted, width: 34, height: 34, borderRadius: 10, cursor: 'pointer', fontSize: '1rem' }}><Icon name="x" size={16} /></button>
         </div>
 
         {/* Steps */}
@@ -435,18 +436,18 @@ function ModalDemande({ service, mesDemandes, onClose, onSuccess }) {
                 {service.description}
               </p>
               <div style={{ background: 'rgba(16,185,129,0.08)', border: `1px solid rgba(16,185,129,0.2)`, borderRadius: 12, padding: '14px 18px' }}>
-                <div style={{ fontWeight: 700, color: C.emerald, fontSize: '0.85rem', marginBottom: 8 }}>📋 Documents requis</div>
+                <div style={{ fontWeight: 700, color: C.emerald, fontSize: '0.85rem', marginBottom: 8 }}><Icon name="file" size={14} />&nbsp;Documents requis</div>
                 {docs.length === 0 ? (
                   <div style={{ color: C.textMuted, fontSize: '0.85rem' }}>Aucun document requis</div>
                 ) : docs.map(d => (
                   <div key={d.code} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                     <span style={{ color: d.obligatoire === false ? C.textDim : C.text, fontSize: '0.85rem', flex: 1 }}>
-                      {d.obligatoire === false ? '○' : '•'} {d.label}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>{d.obligatoire === false ? <Icon name="circle" size={10} /> : <span style={{ width: 8, height: 8, borderRadius: '50%', background: C.emerald, display: 'inline-block' }} />}{d.label}</span>
                       {d.obligatoire === false && <span style={{ color: C.textDim, fontSize: '0.75rem' }}> (optionnel)</span>}
                     </span>
-                    {d.obtainable_here && (
-                      <span style={{ background: 'rgba(16,185,129,0.15)', border: `1px solid rgba(16,185,129,0.3)`, color: C.emerald, borderRadius: 99, padding: '2px 8px', fontSize: '0.68rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                        ✓ Disponible ici
+                        {d.obtainable_here && (
+                      <span style={{ background: 'rgba(16,185,129,0.15)', border: `1px solid rgba(16,185,129,0.3)`, color: C.emerald, borderRadius: 99, padding: '2px 8px', fontSize: '0.68rem', fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <Icon name="check" size={12} /> Disponible ici
                       </span>
                     )}
                   </div>
@@ -474,12 +475,12 @@ function ModalDemande({ service, mesDemandes, onClose, onSuccess }) {
                           {doc.obligatoire === false ? 'Optionnel' : '⚠ Obligatoire'}
                         </div>
                       </div>
-                      {attached && <span style={{ color: C.emerald, fontSize: '1.2rem' }}>✓</span>}
+                      {attached && <span style={{ color: C.emerald, fontSize: '1.2rem' }}><Icon name="check" size={16} /></span>}
                     </div>
 
                     {attached ? (
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(16,185,129,0.1)', borderRadius: 8, padding: '8px 12px' }}>
-                        <span style={{ fontSize: '0.82rem', color: C.emerald }}>📎 {attached.nom}</span>
+                        <span style={{ fontSize: '0.82rem', color: C.emerald }}><Icon name="paperclip" size={14} /> {attached.nom}</span>
                         <button onClick={() => setAttachments(p => { const n = {...p}; delete n[doc.code]; return n; })}
                           style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '0.8rem' }}>Retirer</button>
                       </div>
@@ -490,19 +491,19 @@ function ModalDemande({ service, mesDemandes, onClose, onSuccess }) {
                             style={{
                               background: 'rgba(16,185,129,0.15)', border: `1px solid rgba(16,185,129,0.35)`,
                               color: C.emerald, borderRadius: 10, padding: '9px 14px', cursor: 'pointer',
-                              fontSize: '0.82rem', fontWeight: 700, fontFamily: 'inherit', textAlign: 'left',
+                              fontSize: '0.82rem', fontWeight: 700, fontFamily: 'inherit', textAlign: 'left', display: 'inline-flex', alignItems: 'center', gap: 8,
                             }}>
-                            ✅ Utiliser ma demande approuvée : {existingDemande.reference}
+                            <Icon name="check" size={14} /> Utiliser ma demande approuvée : {existingDemande.reference}
                           </button>
                         )}
                         {doc.obtainable_here && !existingDemande && (
                           <div style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 10, padding: '10px 14px', fontSize: '0.8rem', color: '#a5b4fc' }}>
-                            💡 Ce document peut être demandé sur cette plateforme. Soumettez d'abord une demande de <strong>{doc.label}</strong>, puis revenez.
+                            <Icon name="zap" size={14} /> Ce document peut être demandé sur cette plateforme. Soumettez d'abord une demande de <strong>{doc.label}</strong>, puis revenez.
                           </div>
                         )}
                         <label style={{ display: 'block', cursor: 'pointer' }}>
                           <div style={{ background: 'rgba(255,255,255,0.05)', border: `1px dashed ${C.glassBorder}`, borderRadius: 10, padding: '12px', textAlign: 'center', fontSize: '0.82rem', color: C.textMuted }}>
-                            📁 Glisser ou cliquer pour importer ({doc.obligatoire === false ? 'optionnel' : 'obligatoire'})
+                            <Icon name="download" size={14} /> Glisser ou cliquer pour importer ({doc.obligatoire === false ? 'optionnel' : 'obligatoire'})
                           </div>
                           <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }} onChange={e => handleFileChange(doc.code, e.target.files[0])} />
                         </label>
@@ -534,8 +535,8 @@ function ModalDemande({ service, mesDemandes, onClose, onSuccess }) {
                 ))}
               </div>
               {err && <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '10px 14px', color: '#fca5a5', fontSize: '0.85rem' }}>{err}</div>}
-              <div style={{ background: 'rgba(16,185,129,0.08)', border: `1px solid rgba(16,185,129,0.2)`, borderRadius: 12, padding: '12px 16px', fontSize: '0.82rem', color: C.textMuted }}>
-                📱 Après validation, vous serez notifié par SMS lorsque votre document sera prêt.
+                <div style={{ background: 'rgba(16,185,129,0.08)', border: `1px solid rgba(16,185,129,0.2)`, borderRadius: 12, padding: '12px 16px', fontSize: '0.82rem', color: C.textMuted }}>
+                <Icon name="phone" size={14} /> Après validation, vous serez notifié par SMS lorsque votre document sera prêt.
               </div>
             </div>
           )}
@@ -546,10 +547,10 @@ function ModalDemande({ service, mesDemandes, onClose, onSuccess }) {
           {step > 1 && <Btn variant="ghost" onClick={() => setStep(s => s - 1)} style={{ width: 'auto', padding: '12px 20px' }}>← Retour</Btn>}
           {step < 3 && (
             <Btn onClick={() => setStep(s => s + 1)} disabled={step === 2 && !allObligatoiresMet} style={{ flex: 1 }}>
-              {step === 2 && !allObligatoiresMet ? `⚠ Joindre les documents obligatoires` : 'Continuer →'}
+              {step === 2 && !allObligatoiresMet ? <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}><Icon name="alert" size={14} /> Joindre les documents obligatoires</span> : 'Continuer →'}
             </Btn>
           )}
-          {step === 3 && <Btn onClick={handleSubmit} disabled={loading} style={{ flex: 1 }}>{loading ? 'Envoi…' : '✓ Soumettre la demande'}</Btn>}
+          {step === 3 && <Btn onClick={handleSubmit} disabled={loading} style={{ flex: 1 }}>{loading ? 'Envoi…' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Icon name="check" size={14} /> Soumettre la demande</span>}</Btn>}
         </div>
       </Glass>
     </div>
@@ -577,7 +578,7 @@ function OngletServices({ mesDemandes, onDemandeSuccess }) {
 
   if (success) return (
     <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-      <div style={{ fontSize: '4rem', marginBottom: 20 }}>🎉</div>
+      <div style={{ fontSize: '4rem', marginBottom: 20 }}><Icon name="rocket" size={48} /></div>
       <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 900, fontSize: '1.5rem', color: C.text, marginBottom: 12 }}>
         Demande soumise avec succès !
       </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, useApp } from '../App';
-import { dashboardAPI, alertesAPI, actesAPI } from '../services/api';
+import Icon from '../components/Icon';
+import { dashboardAPI, alertesAPI, actesAPI, auditAPI } from '../services/api';
 
 // ── Traductions communes ─────────────────────────────────────────
 const LANG = {
@@ -32,13 +33,27 @@ const LANG = {
 // Stats et données récentes sont chargées depuis l'API (voir useEffect dans le composant)
 
 // Activité récente chargée dynamiquement depuis le backend (audit log)
+const ACTIVITY = [];
+
+function timeAgo(iso) {
+  try {
+    const then = new Date(iso);
+    const diff = (Date.now() - then.getTime()) / 1000; // seconds
+    if (diff < 60) return `${Math.floor(diff)}s`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+    return `${Math.floor(diff / 86400)}j`;
+  } catch {
+    return '';
+  }
+}
 
 const PHASE_DATA = [
   { label_fr: 'Phase 1 — Préparation',  label_mg: 'Dingana 1 — Fiombonanana', pct: 100, color: 'var(--emerald-500)' },
-  { label_fr: 'Phase 2 — MVP Dev',      label_mg: 'Dingana 2 — Fampandrosoana', pct: 85,  color: 'var(--teal-400)'   },
-  { label_fr: 'Phase 3 — Pilote',       label_mg: 'Dingana 3 — Ditsaka',       pct: 40,  color: '#a78bfa'           },
-  { label_fr: 'Phase 4 — Déploiement',  label_mg: 'Dingana 4 — Fampiharana',   pct: 0,   color: 'var(--gold-400)'   },
-  { label_fr: 'Phase 5 — Pérennisation',label_mg: 'Dingana 5 — Faharetana',    pct: 0,   color: '#f87171'           },
+  { label_fr: 'Phase 2 — Déploiement',  label_mg: 'Dingana 2 — Fanombohana',        pct: 90,  color: 'var(--teal-400)'    },
+  { label_fr: 'Phase 3 — Formation',    label_mg: 'Dingana 3 — Fampiofanana',        pct: 75,  color: 'var(--gold-400)'    },
+  { label_fr: 'Phase 4 — Optimisation', label_mg: 'Dingana 4 — Fanatsarana',         pct: 40,  color: '#a78bfa'           },
+  { label_fr: 'Phase 5 — Pérennisation',label_mg: 'Dingana 5 — Faharetana',         pct: 0,   color: '#f87171'           },
 ];
 
 function StatusBadge({ s }) {
@@ -83,13 +98,33 @@ export default function DashboardHome({ onNavigate }) {
     dashboardAPI.stats().then(setApiStats).catch(() => {}).finally(() => setLoadingStats(false));
     actesAPI.list({ limit: 5 }).then(setRecentActes).catch(() => {});
     alertesAPI.list({ is_active: true, limit: 1 }).then(setActiveAlertes).catch(() => {});
+
+    // Charger l'activité (audit) pour le flux d'activité
+    auditAPI.list({ limit: 10 }).then(data => {
+      if (!data || data.length === 0) return;
+        const mapped = data.map(a => ({
+          icon: a.action === 'DEMANDE' ? 'download' : a.action === 'LOGIN' ? 'login' : a.action === 'VALIDER' ? 'check' : 'file',
+          color: a.niveau_risque === 'Élevé' ? '#f87171' : a.action === 'DEMANDE' ? '#60a5fa' : '#a78bfa',
+        text_fr: `${a.action} ${a.entite}${a.detail ? ' — ' + (a.detail.length > 80 ? a.detail.slice(0, 80) + '…' : a.detail) : ''}`,
+        text_mg: `${a.action} ${a.entite}`,
+        time_fr: timeAgo(a.timestamp),
+        time_mg: timeAgo(a.timestamp),
+      }));
+      // fill ACTIVITY fallback if empty
+      if (mapped.length > 0) {
+        // set recentActes is separate; keep activity as state — reuse recentActes var name? use local state
+        setActivity(mapped);
+      }
+    }).catch(() => {});
   }, []);
 
+  const [activity, setActivity] = useState(ACTIVITY.length ? ACTIVITY : []);
+
   const STATS = [
-    { icon: '👥', value: String(apiStats?.total_citoyens ?? '—'), label_fr: 'Citoyens enregistrés', label_mg: 'Olom-pirenena voasoratra', up: true,  page: 'citoyens'  },
-    { icon: '📋', value: String(apiStats?.actes_ce_mois ?? '—'), label_fr: 'Actes ce mois',         label_mg: 'Taratasy ity volana',     up: true,  page: 'etatcivil' },
-    { icon: '⏳', value: String(apiStats?.dossiers_en_attente ?? '—'), label_fr: 'En attente',       label_mg: 'Rakitra miandry',         up: false, page: 'etatcivil' },
-    { icon: '💳', value: String(apiStats?.total_taxes ?? '—'),    label_fr: 'Taxes collectées (Ar)', label_mg: 'Hetra voangona (Ar)',     up: true,  page: 'paiements' },
+    { icon: 'users', value: String(apiStats?.total_citoyens ?? '—'), label_fr: 'Citoyens enregistrés', label_mg: 'Olom-pirenena voasoratra', up: true,  page: 'citoyens'  },
+    { icon: 'file', value: String(apiStats?.actes_ce_mois ?? '—'), label_fr: 'Actes ce mois',         label_mg: 'Taratasy ity volana',     up: true,  page: 'etatcivil' },
+    { icon: 'clock', value: String(apiStats?.dossiers_en_attente ?? '—'), label_fr: 'En attente',       label_mg: 'Rakitra miandry',         up: false, page: 'etatcivil' },
+    { icon: 'card', value: String(apiStats?.total_taxes ?? '—'),    label_fr: 'Taxes collectées (Ar)', label_mg: 'Hetra voangona (Ar)',     up: true,  page: 'paiements' },
   ];
 
   return (
@@ -97,24 +132,24 @@ export default function DashboardHome({ onNavigate }) {
       {/* Header */}
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <div className="breadcrumb">🏠 <span>/</span> {lang === 'mg' ? 'Fikirakirana' : 'Tableau de bord'}</div>
-          <h1 className="page-title">{greeting}, {user?.name?.split(' ')[0]} 👋</h1>
+          <div className="breadcrumb"><Icon name="home" size={16} /> <span>/</span> {lang === 'mg' ? 'Fikirakirana' : 'Tableau de bord'}</div>
+          <h1 className="page-title">{greeting}, {user?.name?.split(' ')[0]} <Icon name="user" size={20} style={{ marginLeft: 8 }} /></h1>
           <p className="page-subtitle">
             {new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             &nbsp;·&nbsp;<span style={{ color: 'var(--emerald-400)' }}>{lang === 'mg' ? '✓ Voatomombana rehetra' : '✓ Tout synchronisé'}</span>
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button className="btn btn-glass btn-sm" onClick={() => onNavigate('etatcivil')}>{lang === 'mg' ? '📋 Taratasy vaovao' : '📋 Nouvel acte'}</button>
-          <button className="btn btn-glass btn-sm" onClick={() => onNavigate('impressions')}>{lang === 'mg' ? '🖨️ Printy' : '🖨️ Imprimer'}</button>
-          <button className="btn btn-primary btn-sm" onClick={() => onNavigate('certificats')}>{lang === 'mg' ? '+ Taratasy' : '+ Certificat'}</button>
+          <button className="btn btn-glass btn-sm" onClick={() => onNavigate('etatcivil')}><Icon name="file" size={14} />&nbsp;{lang === 'mg' ? 'Taratasy vaovao' : 'Nouvel acte'}</button>
+          <button className="btn btn-glass btn-sm" onClick={() => onNavigate('impressions')}><Icon name="printer" size={14} />&nbsp;{lang === 'mg' ? 'Printy' : 'Imprimer'}</button>
+          <button className="btn btn-primary btn-sm" onClick={() => onNavigate('certificats')}><Icon name="file" size={14} />&nbsp;{lang === 'mg' ? '+ Taratasy' : '+ Certificat'}</button>
         </div>
       </div>
 
       {/* Alertes banner dynamique */}
       {activeAlertes.length > 0 && (
         <div className="alert alert-error" style={{ marginBottom: 10 }}>
-          <span style={{ fontSize: '1.1rem' }}>{activeAlertes[0].icon || '📡'}</span>
+          <span style={{ fontSize: '1.1rem' }}><Icon name={activeAlertes[0].icon || 'alert'} size={18} /></span>
           <div>
             <div style={{ fontWeight: 700, fontSize: '0.875rem' }}>{activeAlertes[0].titre}</div>
             <div style={{ fontSize: '0.8rem', opacity: 0.8, marginTop: 2 }}>{activeAlertes[0].message}</div>
@@ -124,7 +159,7 @@ export default function DashboardHome({ onNavigate }) {
       )}
       {apiStats?.dossiers_en_attente > 0 && (
         <div className="alert alert-warn" style={{ marginBottom: 20 }}>
-          <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+          <span style={{ fontSize: '1.1rem' }}><Icon name="alert" size={18} /></span>
           <div>
             <div style={{ fontWeight: 700, fontSize: '0.875rem' }}>{lang === 'mg' ? `${apiStats.dossiers_en_attente} rakitra miandry` : `${apiStats.dossiers_en_attente} dossiers en attente`}</div>
             <div style={{ fontSize: '0.8rem', opacity: 0.8, marginTop: 2 }}>{lang === 'mg' ? 'Ataovy voalohany ireo efa mitohitohy' : 'Traiter en priorité les dossiers non validés'}</div>
@@ -142,7 +177,7 @@ export default function DashboardHome({ onNavigate }) {
             onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
             onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
           >
-            <span className="stat-icon">{s.icon}</span>
+            <span className="stat-icon"><Icon name={s.icon} size={22} /></span>
             <div className="stat-value">{loadingStats ? '…' : <AnimCounter target={s.value} />}</div>
             <div className="stat-label">{lang === 'mg' ? s.label_mg : s.label_fr}</div>
             <div className={`stat-trend ${s.up ? 'up' : 'down'}`}>{s.up ? '↑' : '↓'} {lang === 'mg' ? 'ity volana ity' : 'ce mois'}</div>
@@ -191,12 +226,12 @@ export default function DashboardHome({ onNavigate }) {
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {(activityTab === 'recent' ? ACTIVITY.slice(0, 4) : ACTIVITY).map((a, i, arr) => (
+            {(activityTab === 'recent' ? activity.slice(0, 4) : activity).map((a, i, arr) => (
               <div key={i} style={{ display: 'flex', gap: 12, paddingBottom: 14, position: 'relative' }}>
                 {i < arr.length - 1 && <div style={{ position: 'absolute', left: 13, top: 28, width: 1, height: 'calc(100% - 14px)', background: 'var(--glass-bg)' }} />}
-                <div style={{ width: 26, height: 26, borderRadius: '50%', background: `${a.color}22`, border: `1px solid ${a.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', flexShrink: 0, zIndex: 1 }}>
-                  {a.icon}
-                </div>
+                    <div style={{ width: 26, height: 26, borderRadius: '50%', background: `${a.color}22`, border: `1px solid ${a.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', flexShrink: 0, zIndex: 1 }}>
+                      <Icon name={a.icon} size={12} />
+                    </div>
                 <div style={{ flex: 1, paddingTop: 2 }}>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{lang === 'mg' ? a.text_mg : a.text_fr}</div>
                   <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 3 }}>{lang === 'mg' ? a.time_mg : a.time_fr}</div>
@@ -211,7 +246,7 @@ export default function DashboardHome({ onNavigate }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20 }}>
         {/* Sync */}
         <div className="glass-card" style={{ padding: 24 }}>
-          <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1rem', marginBottom: 16 }}>{lang === 'mg' ? '📡 Fampifandraisana' : '📡 Synchronisation'}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1rem', marginBottom: 16 }}><Icon name="zap" size={18} />{lang === 'mg' ? 'Fampifandraisana' : 'Synchronisation'}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {[
               { label_fr: 'Données locales',  label_mg: 'Angon-drakitra eto',   pct: 100, color: 'var(--emerald-500)' },
@@ -232,17 +267,18 @@ export default function DashboardHome({ onNavigate }) {
 
         {/* Actions rapides */}
         <div className="glass-card" style={{ padding: 24 }}>
-          <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1rem', marginBottom: 16 }}>{lang === 'mg' ? '⚡ Asa haingana' : '⚡ Actions rapides'}</div>
+          <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1rem', marginBottom: 16 }}><Icon name="zap" size={18} style={{ verticalAlign: 'middle', marginRight: 8 }} />{lang === 'mg' ? 'Asa haingana' : 'Actions rapides'}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[
-              { icon: '👶', label_fr: 'Enregistrer naissance', label_mg: "Masoratra fahaterahan'ny zaza", page: 'etatcivil' },                { icon: '📜', label_fr: 'Délivrer certificat',    label_mg: 'Manome taratasy ofisialy',      page: 'certificats'  },
-              { icon: '💳', label_fr: 'Encaisser paiement',     label_mg: 'Mandray fandoavana',            page: 'paiements'    },
-              { icon: '🖨️', label_fr: 'Imprimer un document',  label_mg: 'Printy antontan-taratasy',      page: 'impressions'  },
-              { icon: '📡', label_fr: 'Publier une alerte',     label_mg: 'Hamoaka filazana',              page: 'alertes'      },
-              { icon: '📊', label_fr: 'Voir les statistiques',  label_mg: 'Jereo ny statistika',           page: 'statistiques' },
+              { icon: 'user', label_fr: 'Enregistrer naissance', label_mg: "Masoratra fahaterahan'ny zaza", page: 'etatcivil' },
+              { icon: 'file', label_fr: 'Délivrer certificat',    label_mg: 'Manome taratasy ofisialy',      page: 'certificats'  },
+              { icon: 'card', label_fr: 'Encaisser paiement',     label_mg: 'Mandray fandoavana',            page: 'paiements'    },
+              { icon: 'printer', label_fr: 'Imprimer un document',  label_mg: 'Printy antontan-taratasy',      page: 'impressions'  },
+              { icon: 'alert', label_fr: 'Publier une alerte',     label_mg: 'Hamoaka filazana',              page: 'alertes'      },
+              { icon: 'chart', label_fr: 'Voir les statistiques',  label_mg: 'Jereo ny statistika',           page: 'statistiques' },
             ].map(a => (
               <button key={a.label_fr} className="btn btn-glass" style={{ justifyContent: 'flex-start', padding: '9px 14px', gap: 10, fontSize: '0.82rem' }} onClick={() => onNavigate(a.page)}>
-                <span style={{ width: 20, textAlign: 'center' }}>{a.icon}</span> {lang === 'mg' ? a.label_mg : a.label_fr}
+                <span style={{ width: 20, textAlign: 'center' }}><Icon name={a.icon} size={16} /></span> {lang === 'mg' ? a.label_mg : a.label_fr}
               </button>
             ))}
           </div>
@@ -250,7 +286,7 @@ export default function DashboardHome({ onNavigate }) {
 
         {/* Plan */}
         <div className="glass-card" style={{ padding: 24 }}>
-          <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1rem', marginBottom: 16 }}>{lang === 'mg' ? '🗓️ Drafitry ny fampiharana' : '🗓️ Plan de déploiement'}</div>
+          <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1rem', marginBottom: 16 }}><Icon name="calendar" size={18} style={{ verticalAlign: 'middle', marginRight: 8 }} />{lang === 'mg' ? 'Drafitry ny fampiharana' : 'Plan de déploiement'}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {PHASE_DATA.map((p, i) => (
               <div key={i}>
@@ -262,8 +298,9 @@ export default function DashboardHome({ onNavigate }) {
               </div>
             ))}
           </div>
-          <div style={{ marginTop: 14, padding: '10px 14px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 8, fontSize: '0.72rem', color: 'var(--emerald-400)' }}>
-            {lang === 'mg' ? '🚀 Ditsaka : Fokontany 5 · Mpiasam-panjakana 200' : '🚀 Pilote : 5 Fokontany · 200 agents formés'}
+          <div style={{ marginTop: 14, padding: '10px 14px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 8, fontSize: '0.72rem', color: 'var(--emerald-400)', display: 'flex', gap: 8, alignItems: 'center' }}>
+            <Icon name="rocket" size={16} />
+            <div>{lang === 'mg' ? 'Ditsaka : Fokontany 5 · Mpiasam-panjakana 200' : 'Pilote : 5 Fokontany · 200 agents formés'}</div>
           </div>
         </div>
       </div>

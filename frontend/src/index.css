@@ -854,10 +854,11 @@ html {
   --glass-shadow-xl:    0 20px 60px rgba(0, 0, 0, 0.15);
 
   /* — Texte — contraste sur fond clair — */
-  --text-primary:   #0f172a;
-  --text-secondary: rgba(15, 23, 42, 0.75);
-  --text-muted:     rgba(15, 23, 42, 0.50);
-  --text-disabled:  rgba(15, 23, 42, 0.30);
+  /* Increase contrast for light mode for better readability */
+  --text-primary:   #071026;
+  --text-secondary: rgba(7, 16, 38, .86);
+  --text-muted: rgba(7, 16, 38, .65);
+  --text-disabled: rgba(7, 16, 38, .45);
 
   /* — Surfaces — */
   --surface-bg:     rgba(255,255,255,0.9);

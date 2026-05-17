@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../App';
+import Icon from '../components/Icon';
 import { agentsAPI } from '../services/api';
 
 const LANG = {
@@ -60,23 +61,23 @@ export default function Agents() {
     <>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <div className="breadcrumb">👔 <span>/</span> {lang === 'mg' ? 'Mpiasam-panjakana' : 'Agents'}</div>
+          <div className="breadcrumb"><Icon name="users" size={16} /> <span>/</span> {lang === 'mg' ? 'Mpiasam-panjakana' : 'Agents'}</div>
           <h1 className="page-title">Gestion des {lang === 'mg' ? 'Mpiasam-panjakana' : 'Agents'}</h1>
           <p className="page-subtitle">Administration des comptes agents, rôles et affectations Fokontany</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Nouvel agent</button>
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}><Icon name="user" size={14} />&nbsp;Nouvel agent</button>
       </div>
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, marginBottom: 24 }}>
         {[
-          { l: lang==='mg'?'Mpiasam-panjakana rehetra':'Total agents', v: agents.length,                                      icon: '👔', color: 'var(--text-primary)' },
-          { l: lang==='mg'?'Miasa':'Actifs', v: agents.filter(a => a.is_active).length,              icon: '✅', color: 'var(--emerald-400)' },
-          { l: lang==='mg'?'Fokontany voakasika':'Fokontany couverts', v: new Set(agents.map(a => a.fokontany)).size,          icon: '📍', color: '#a78bfa' },
-          { l: lang==='mg'?'Andraikitra samy hafa':'Rôles distincts', v: new Set(agents.map(a => a.role)).size,               icon: '🎭', color: 'var(--teal-400)' },
+          { l: lang==='mg'?'Mpiasam-panjakana rehetra':'Total agents', v: agents.length,                                      icon: 'users', color: 'var(--text-primary)' },
+          { l: lang==='mg'?'Miasa':'Actifs', v: agents.filter(a => a.is_active).length,              icon: 'check', color: 'var(--emerald-400)' },
+          { l: lang==='mg'?'Fokontany voakasika':'Fokontany couverts', v: new Set(agents.map(a => a.fokontany)).size,          icon: 'pin', color: '#a78bfa' },
+          { l: lang==='mg'?'Andraikitra samy hafa':'Rôles distincts', v: new Set(agents.map(a => a.role)).size,               icon: 'settings', color: 'var(--teal-400)' },
         ].map(s => (
           <div key={s.l} className="glass-card" style={{ padding: '18px 20px' }}>
-            <div style={{ fontSize: '1.3rem', marginBottom: 6 }}>{s.icon}</div>
+            <div style={{ fontSize: '1.3rem', marginBottom: 6 }}><Icon name={s.icon} size={20} /></div>
             <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '1.5rem', fontWeight: 800, color: s.color }}>{loading ? '…' : s.v}</div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>{s.l}</div>
           </div>
@@ -86,7 +87,7 @@ export default function Agents() {
       {/* Recherche */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center' }}>
         <div className="search-wrap" style={{ flex: '1 1 280px', maxWidth: 400 }}>
-          <span style={{ color: 'var(--text-muted)' }}>🔍</span>
+          <span style={{ color: 'var(--text-muted)' }}><Icon name="search" size={16} /></span>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un agent..." />
         </div>
       </div>
@@ -169,7 +170,7 @@ export default function Agents() {
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button className="btn btn-glass" onClick={() => setSelected(null)}>{t.fermer}</button>
-              {selected.is_active && <button className="btn btn-danger" onClick={() => handleDisable(selected.id)}>🚫 Désactiver</button>}
+              {selected.is_active && <button className="btn btn-danger" onClick={() => handleDisable(selected.id)}><Icon name="x" size={14} /> Désactiver</button>}
             </div>
           </div>
         </div>
@@ -180,12 +181,12 @@ export default function Agents() {
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
           <div className="modal" style={{ maxWidth: 580 }}>
             <div className="modal-header">
-              <div className="modal-title">👔 Nouvel agent</div>
+              <div className="modal-title"><Icon name="user" size={18} /> Nouvel agent</div>
               <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
             </div>
             {saved ? (
               <div className="alert alert-success" style={{ textAlign: 'center', flexDirection: 'column', padding: 32 }}>
-                <div style={{ fontSize: '2rem', marginBottom: 10 }}>✅</div>
+                <div style={{ fontSize: '2rem', marginBottom: 10 }}><Icon name="check" size={32} /></div>
                 <div style={{ fontWeight: 700 }}>Agent créé avec succès</div>
                 <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: 4 }}>Identifiants envoyés par SMS</div>
               </div>
@@ -226,7 +227,7 @@ export default function Agents() {
                   </div>
                 </div>
                 <div className="alert alert-info" style={{ marginBottom: 20 }}>
-                  <span>📱</span>
+                  <span><Icon name="phone" size={16} /></span>
                   <div style={{ fontSize: '0.78rem' }}>{lang==='mg'?"Hamorona ho azy ny matricule. Ny mpiasam-panjakana dia tsy maintsy hanova ny tenimiafiny amin\'ny fidirana voalohany.":"Un matricule sera généré automatiquement. L'agent devra changer son mot de passe à la première connexion."}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>

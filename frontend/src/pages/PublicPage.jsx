@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth, useApp } from '../App';
+import Icon from '../components/Icon';
 
 // ── Traductions communes ─────────────────────────────────────────
 const LANG = {
@@ -48,12 +49,12 @@ export default function PublicPage({ onLogin, onCitoyen }) {
   const [trackResult, setTrackResult] = useState(null);
 
   const services = [
-    { icon: '📋', title: lang === 'mg' ? 'Toe-piainana' : 'État Civil', desc: lang === 'mg' ? 'Fahaterahana, fanambadiana, fahafatesana' : 'Naissances, mariages, décès', color: 'var(--emerald-500)' },
-    { icon: '📜', title: lang === 'mg' ? 'Taratasy ofisialy' : 'Certificats', desc: lang === 'mg' ? 'Fonenana, lova, isan-karazany' : 'Résidence, héritage, divers', color: 'var(--teal-400)' },
-    { icon: '💳', title: lang === 'mg' ? 'Fandoavana' : 'Paiements', desc: lang === 'mg' ? 'Hetra, sazy, tamberim-bidy' : 'Taxes, amendes, redevances', color: 'var(--gold-400)' },
-    { icon: '📡', title: lang === 'mg' ? 'Filazana' : 'Alertes', desc: lang === 'mg' ? 'Fahasalamana, filaminana, fanambarana' : 'Santé, sécurité, annonces', color: '#f87171' },
-    { icon: '🗺️', title: lang === 'mg' ? 'Sarintany' : 'Cartographie', desc: lang === 'mg' ? 'Fokontany voafaritra' : 'Fokontany géolocalisés', color: '#a78bfa' },
-    { icon: '🤖', title: lang === 'mg' ? 'Mpanampy' : 'Assistance', desc: 'Chatbot multilingue 24/7', color: '#60a5fa' },
+    { icon: 'file', title: lang === 'mg' ? 'Toe-piainana' : 'État Civil', desc: lang === 'mg' ? 'Fahaterahana, fanambadiana, fahafatesana' : 'Naissances, mariages, décès', color: 'var(--emerald-500)' },
+    { icon: 'file', title: lang === 'mg' ? 'Taratasy ofisialy' : 'Certificats', desc: lang === 'mg' ? 'Fonenana, lova, isan-karazany' : 'Résidence, héritage, divers', color: 'var(--teal-400)' },
+    { icon: 'card', title: lang === 'mg' ? 'Fandoavana' : 'Paiements', desc: lang === 'mg' ? 'Hetra, sazy, tamberim-bidy' : 'Taxes, amendes, redevances', color: 'var(--gold-400)' },
+    { icon: 'alert', title: lang === 'mg' ? 'Filazana' : 'Alertes', desc: lang === 'mg' ? 'Fahasalamana, filaminana, fanambarana' : 'Santé, sécurité, annonces', color: '#f87171' },
+    { icon: 'pin', title: lang === 'mg' ? 'Sarintany' : 'Cartographie', desc: lang === 'mg' ? 'Fokontany voafaritra' : 'Fokontany géolocalisés', color: '#a78bfa' },
+    { icon: 'zap', title: lang === 'mg' ? 'Mpanampy' : 'Assistance', desc: 'Chatbot multilingue 24/7', color: '#60a5fa' },
   ];
 
   const steps = [
@@ -97,13 +98,15 @@ export default function PublicPage({ onLogin, onCitoyen }) {
         padding: '14px 32px',
         display: 'flex', alignItems: 'center', gap: 20,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginRight: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginRight: 'auto' }}>
           <div style={{
             width: 38, height: 38, borderRadius: 10,
             background: 'linear-gradient(135deg,#10b981,#14b8a6)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '1.2rem', boxShadow: '0 4px 12px rgba(16,185,129,0.4)',
-          }}>🌿</div>
+          }}>
+            <Icon name="rocket" size={18} />
+          </div>
           <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)' }}>CommuneDigit</span>
           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', background: 'var(--glass-bg)', padding: '2px 8px', borderRadius: 20 }}>MG</span>
         </div>
@@ -119,7 +122,7 @@ export default function PublicPage({ onLogin, onCitoyen }) {
           {theme === 'dark' ? '☀️' : '🌙'}
         </button>
         <button className="btn btn-glass btn-sm" onClick={onLogin}>{lang === 'mg' ? 'Toerana Mpiasam-panjakana' : 'Espace Agent'}</button>
-        <button className="btn btn-primary btn-sm" onClick={onCitoyen}>🏛️ {lang === 'mg' ? 'Toerana Olom-pirenena' : 'Mon espace citoyen'}</button>
+        <button className="btn btn-primary btn-sm" onClick={onCitoyen}><Icon name="home" size={14} />&nbsp;{lang === 'mg' ? 'Toerana Olom-pirenena' : 'Mon espace citoyen'}</button>
       </nav>
 
       {/* ── HERO ── */}
@@ -182,7 +185,7 @@ export default function PublicPage({ onLogin, onCitoyen }) {
                 onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
                 onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
               >
-                <div style={{ fontSize: '2rem', marginBottom: 12 }}>{s.icon}</div>
+                <div style={{ fontSize: '2rem', marginBottom: 12 }}><Icon name={s.icon} size={28} /></div>
                 <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.95rem', marginBottom: 6 }}>{s.title}</div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{s.desc}</div>
                 <div style={{ width: 30, height: 3, background: s.color, borderRadius: 99, margin: '14px auto 0' }} />
@@ -198,8 +201,8 @@ export default function PublicPage({ onLogin, onCitoyen }) {
           {/* Tabs */}
           <div className="tabs" style={{ marginBottom: 28, display: 'inline-flex' }} id="suivi">
             {['demande', 'suivi'].map(t => (
-              <button key={t} className={`tab-btn ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
-                {t === 'demande' ? '📋 Nouvelle demande' : '🔍 Suivre mon dossier'}
+                <button key={t} className={`tab-btn ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
+                {t === 'demande' ? <><Icon name="file" size={14} />&nbsp;Nouvelle demande</> : <><Icon name="search" size={14} />&nbsp;Suivre mon dossier</>}
               </button>
             ))}
           </div>
@@ -211,57 +214,21 @@ export default function PublicPage({ onLogin, onCitoyen }) {
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: 28 }}>
                   Remplissez le formulaire. Votre demande sera traitée par l'agent Fokontany compétent.
                 </p>
-                <form onSubmit={handleSubmit}>
-                  <div className="form-grid" style={{ marginBottom: 16 }}>
-                    <div className="form-group">
-                      <label className="form-label">Nom *</label>
-                      <input className="form-input" value={formData.nom} onChange={e => setFormData({...formData, nom: e.target.value})} placeholder="Ex: Rakoto" required />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Prénom(s) *</label>
-                      <input className="form-input" value={formData.prenom} onChange={e => setFormData({...formData, prenom: e.target.value})} placeholder="Ex: Jean" required />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">N° CIN (si disponible)</label>
-                      <input className="form-input" value={formData.cin} onChange={e => setFormData({...formData, cin: e.target.value})} placeholder="Ex: 101234567890" />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Téléphone *</label>
-                      <input className="form-input" value={formData.telephone} onChange={e => setFormData({...formData, telephone: e.target.value})} placeholder="Ex: 034 XX XXX XX" required />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Fokontany *</label>
-                      <input className="form-input" value={formData.fokontany} onChange={e => setFormData({...formData, fokontany: e.target.value})} placeholder="Ex: Sabotsy Namehana" required />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Type de service *</label>
-                      <select className="form-select" value={formData.service} onChange={e => setFormData({...formData, service: e.target.value})} required>
-                        <option value="">Choisir un service...</option>
-                        <option>Acte de naissance</option>
-                        <option>Acte de mariage</option>
-                        <option>Acte de décès</option>
-                        <option>Certificat de résidence</option>
-                        <option>Certificat d'héritage</option>
-                        <option>Permis divers</option>
-                        <option>Paiement de taxe</option>
-                        <option>Autre</option>
-                      </select>
-                    </div>
+                <div>
+                  <h3 style={{ marginTop: 0 }}>Accès restreint — Compte citoyen requis</h3>
+                  <p style={{ color: 'var(--text-muted)' }}>
+                    Pour soumettre une demande (certificat, acte ou lettre administrative), vous devez être connecté·e à votre compte citoyen.
+                    Créez un compte ou connectez‑vous pour accéder aux formulaires personnels et suivre vos dossiers.
+                  </p>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                    <button className="btn btn-primary" onClick={onCitoyen}>Créer un compte / Mon espace citoyen</button>
+                    <button className="btn btn-glass" onClick={onLogin}>Se connecter (Espace agent / agent)</button>
                   </div>
-                  <div className="form-group" style={{ marginBottom: 20 }}>
-                    <label className="form-label">Précisions / Motif</label>
-                    <textarea className="form-textarea" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Décrivez brièvement votre demande..." />
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      🔒 Vos données sont chiffrées et protégées (Loi 2014-038)
-                    </span>
-                    <button type="submit" className="btn btn-primary">Soumettre ma demande →</button>
-                  </div>
-                </form>
+                </div>
+                
                 {status && (
                   <div className="alert alert-success" style={{ marginTop: 20 }}>
-                    <span>✅</span>
+                    <span><Icon name="check" size={18} /></span>
                     <div style={{ fontSize: '0.875rem' }}>{status}</div>
                   </div>
                 )}
@@ -332,12 +299,12 @@ export default function PublicPage({ onLogin, onCitoyen }) {
 
       {/* ── FOOTER ── */}
       <footer style={{ padding: '28px 32px', borderTop: '1px solid var(--glass-border)', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 32, flexWrap: 'wrap', marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 32, flexWrap: 'wrap', marginBottom: 12 }}>
           <span>Ministère de l'Intérieur et de la Décentralisation</span>
           <span>·</span>
           <span>Loi 2014-038 · Convention de Malabo</span>
           <span>·</span>
-          <span>🔒 Données chiffrées AES-256</span>
+          <span><Icon name="lock" size={14} /> Données chiffrées AES-256</span>
         </div>
         <div>CommuneDigit © — Madagascar</div>
       </footer>

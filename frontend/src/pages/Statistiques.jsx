@@ -120,18 +120,22 @@ export default function Statistiques() {
     <>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <div className="breadcrumb">📊 <span>/</span> {lang === 'mg' ? 'Statistika' : 'Statistiques'}</div>
+          <div className="breadcrumb"><Icon name="chart" size={16} /> <span>/</span> {lang === 'mg' ? 'Statistika' : 'Statistiques'}</div>
           <h1 className="page-title">{lang === 'mg' ? 'Statistika & Tatitra' : 'Statistiques & Rapports'}</h1>
           <p className="page-subtitle">Tableau de bord analytique · Données en temps réel</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-glass btn-sm">⬇ Rapport PDF</button>
+          <button className="btn btn-glass btn-sm"><Icon name="download" size={14} />&nbsp;Rapport PDF</button>
         </div>
       </div>
 
       {/* Onglets */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
-        {[['apercu', lang==='mg'?'📊 Fijery':'📊 Aperçu'], ['etatcivil', lang==='mg'?'📋 Toe-piainana':'📋 État civil'], ['finances', lang==='mg'?'💳 Vola':'💳 Finances']].map(([key, lbl]) => (
+        {[
+          ['apercu', <><Icon name="chart" size={14} /> &nbsp;{lang==='mg'?'Fijery':'Aperçu'}</>],
+          ['etatcivil', <><Icon name="file" size={14} /> &nbsp;{lang==='mg'?'Toe-piainana':'État civil'}</>],
+          ['finances', <><Icon name="card" size={14} /> &nbsp;{lang==='mg'?'Vola':'Finances'}</>],
+        ].map(([key, lbl]) => (
           <button key={key} className={`chip ${activeTab === key ? 'active' : ''}`} onClick={() => setActiveTab(key)}>{lbl}</button>
         ))}
       </div>
@@ -141,13 +145,13 @@ export default function Statistiques() {
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 28 }}>
             {[
-              { l: lang==='mg'?'Olom-pirenena voasoratra':'Citoyens inscrits', v: loading ? '…' : (stats?.total_citoyens ?? '—').toLocaleString?.('fr-FR') ?? stats?.total_citoyens ?? '—', icon: '👥', color: 'var(--emerald-400)', trend: '+2%' },
-              { l: lang==='mg'?'Taratasy ity volana':'Actes ce mois',           v: loading ? '…' : stats?.actes_ce_mois ?? '—',          icon: '📋', color: 'var(--teal-400)',    trend: '+8%' },
-              { l: lang==='mg'?'Rakitra miandry':'En attente',                   v: loading ? '…' : stats?.dossiers_en_attente ?? '—',    icon: '⏳', color: 'var(--gold-400)',    trend: null  },
-              { l: lang==='mg'?'Hetra voangona (Ar)':'Total taxes (Ar)',         v: loading ? '…' : (stats?.total_taxes ?? 0).toLocaleString?.('fr-FR') ?? '—', icon: '💰', color: '#a78bfa', trend: '+24%' },
+              { l: lang==='mg'?'Olom-pirenena voasoratra':'Citoyens inscrits', v: loading ? '…' : (stats?.total_citoyens ?? '—').toLocaleString?.('fr-FR') ?? stats?.total_citoyens ?? '—', icon: 'users', color: 'var(--emerald-400)', trend: '+2%' },
+              { l: lang==='mg'?'Taratasy ity volana':'Actes ce mois',           v: loading ? '…' : stats?.actes_ce_mois ?? '—',          icon: 'file', color: 'var(--teal-400)',    trend: '+8%' },
+              { l: lang==='mg'?'Rakitra miandry':'En attente',                   v: loading ? '…' : stats?.dossiers_en_attente ?? '—',    icon: 'clock', color: 'var(--gold-400)',    trend: null  },
+              { l: lang==='mg'?'Hetra voangona (Ar)':'Total taxes (Ar)',         v: loading ? '…' : (stats?.total_taxes ?? 0).toLocaleString?.('fr-FR') ?? '—', icon: 'card', color: '#a78bfa', trend: '+24%' },
             ].map(s => (
               <div key={s.l} className="glass-card" style={{ padding: '20px 22px' }}>
-                <div style={{ fontSize: '1.4rem', marginBottom: 8 }}>{s.icon}</div>
+                <div style={{ fontSize: '1.4rem', marginBottom: 8 }}><Icon name={s.icon} size={22} /></div>
                 <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '1.6rem', fontWeight: 800, color: s.color }}>{s.v}</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>{s.l}</div>
                 {s.trend && <div style={{ fontSize: '0.72rem', color: 'var(--emerald-400)', marginTop: 4 }}>↑ {s.trend} ce mois</div>}
@@ -159,7 +163,7 @@ export default function Statistiques() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
             {/* Actes */}
             <div className="glass-card" style={{ padding: 24 }}>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '0.95rem', marginBottom: 20 }}>📋 Actes enregistrés — 6 mois</div>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '0.95rem', marginBottom: 20 }}><Icon name="file" size={18} /> Actes enregistrés — 6 mois</div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 120 }}>
                 {monthlyActes.map((v, i) => (
                   <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
@@ -172,7 +176,7 @@ export default function Statistiques() {
 
             {/* Citoyens */}
             <div className="glass-card" style={{ padding: 24 }}>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '0.95rem', marginBottom: 12 }}>👥 Croissance citoyens — 6 mois</div>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '0.95rem', marginBottom: 12 }}><Icon name="users" size={18} /> Croissance citoyens — 6 mois</div>
               <LineChart data={monthlyCitoyens} color="var(--teal-400)" />
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
                 {months6.map(m => <div key={m} style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>{m}</div>)}
@@ -183,7 +187,7 @@ export default function Statistiques() {
           {/* Répartition */}
           {stats && (
             <div className="glass-card" style={{ padding: 24 }}>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '0.95rem', marginBottom: 20 }}>📊 Répartition des opérations</div>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '0.95rem', marginBottom: 20 }}><Icon name="chart" size={18} /> Répartition des opérations</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
                 {[
                   { l: lang==='mg'?'Fahaterahan\'ny zaza':'Naissances', pct: 45, color: 'var(--emerald-500)' },
@@ -210,7 +214,7 @@ export default function Statistiques() {
       {/* Onglet État civil */}
       {activeTab === 'etatcivil' && (
         <div className="glass-card" style={{ padding: 24 }}>
-          <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '0.95rem', marginBottom: 20 }}>📋 Actes d'état civil — 6 derniers mois</div>
+          <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '0.95rem', marginBottom: 20 }}><Icon name="file" size={18} /> Actes d'état civil — 6 derniers mois</div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 160, marginBottom: 8 }}>
             {monthlyActes.map((v, i) => (
               <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>

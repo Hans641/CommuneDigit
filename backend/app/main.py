@@ -177,11 +177,11 @@ def seed_db():
         # Fokontany
         if db.query(Fokontany).count() == 0:
             foks = [
-                Fokontany(nom="Sabotsy Namehana", commune="Antananarivo", latitude=-18.87, longitude=47.55, population=12400, is_online=True),
-                Fokontany(nom="Ambohimanga",      commune="Antananarivo", latitude=-18.77, longitude=47.53, population=8200, is_online=True),
-                Fokontany(nom="Ivandry",          commune="Antananarivo", latitude=-18.88, longitude=47.50, population=15600, is_online=True),
-                Fokontany(nom="Ankorondrano",     commune="Antananarivo", latitude=-18.90, longitude=47.52, population=9800, is_online=True),
-                Fokontany(nom="Ambodivona",       commune="Antananarivo", latitude=-18.91, longitude=47.54, population=7300, is_online=True),
+                Fokontany(nom="Sabotsy Namehana", commune="Antananarivo", latitude=-18.87, longitude=47.55, population=12400),
+                Fokontany(nom="Ambohimanga",      commune="Antananarivo", latitude=-18.77, longitude=47.53, population=8200),
+                Fokontany(nom="Ivandry",          commune="Antananarivo", latitude=-18.88, longitude=47.50, population=15600),
+                Fokontany(nom="Ankorondrano",     commune="Antananarivo", latitude=-18.90, longitude=47.52, population=9800),
+                Fokontany(nom="Ambodivona",       commune="Antananarivo", latitude=-18.91, longitude=47.54, population=7300),
             ]
             db.add_all(foks)
             db.flush()

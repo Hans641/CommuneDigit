@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../App';
+import Icon from '../components/Icon';
 import { certificatsAPI, citoyensAPI } from '../services/api';
 
 const LANG = {
@@ -8,10 +9,10 @@ const LANG = {
 };
 
 const TYPES_CERT = [
-  { type: 'Résidence', icon: '🏠', prix: 2000 },
-  { type: 'Héritage',  icon: '⚖️', prix: 5000 },
-  { type: 'Permis',    icon: '🔧', prix: 10000 },
-  { type: 'Autre',     icon: '📄', prix: 0 },
+  { type: 'Résidence', icon: 'home', prix: 2000 },
+  { type: 'Héritage',  icon: 'scale', prix: 5000 },
+  { type: 'Permis',    icon: 'wrench', prix: 10000 },
+  { type: 'Autre',     icon: 'file', prix: 0 },
 ];
 
 function StatutBadge({ s }) {
@@ -95,7 +96,7 @@ export default function Certificats() {
             onClick={() => setFilterType(filterType === tc.type ? 'Tous' : tc.type)}
             onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px)'}
             onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-            <div style={{ fontSize: '1.8rem', marginBottom: 8 }}>{tc.icon}</div>
+            <div style={{ fontSize: '1.8rem', marginBottom: 8 }}><Icon name={tc.icon} size={28} /></div>
             <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{tc.type}</div>
             <div style={{ fontSize: '0.75rem', color: 'var(--emerald-400)', margin: '4px 0' }}>
               {tc.prix === 0 ? 'Gratuit' : `${tc.prix.toLocaleString('fr-FR')} Ar`}
@@ -165,7 +166,7 @@ export default function Certificats() {
                         <button className="btn btn-primary btn-sm" onClick={() => handleDelivrer(c.id)}>✓ Délivrer</button>
                       )}
                       {c.statut === 'Délivré' && (
-                        <button className="btn btn-glass btn-sm">🖨 Imprimer</button>
+                        <button className="btn btn-glass btn-sm"><Icon name="printer" size={14} />&nbsp;Imprimer</button>
                       )}
                     </div>
                   </td>

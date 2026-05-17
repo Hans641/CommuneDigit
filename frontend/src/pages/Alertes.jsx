@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../App';
+import Icon from '../components/Icon';
 import { alertesAPI } from '../services/api';
 
 const LANG = {
@@ -64,11 +65,11 @@ export default function Alertes() {
     <>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <div className="breadcrumb">📡 <span>/</span> {lang === 'mg' ? 'Filazana' : 'Alertes'}</div>
+          <div className="breadcrumb"><Icon name="alert" size={16} /> <span>/</span> {lang === 'mg' ? 'Filazana' : 'Alertes'}</div>
           <h1 className="page-title">{lang === 'mg' ? 'Filazana' : 'Alertes'} & Communications</h1>
           <p className="page-subtitle">Diffusion d'annonces officielles — SMS, push, USSD</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>📡 Publier une alerte</button>
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}><Icon name="alert" size={14} />&nbsp;Publier une alerte</button>
       </div>
 
       {/* Filtres */}
@@ -81,13 +82,13 @@ export default function Alertes() {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14, marginBottom: 24 }}>
         {[
-          { l: lang==='mg'?'Miasa':'Actives',      v: counts.Active,    icon: '🔴', color: '#f87171' },
-          { l: lang==='mg'?'Nolaminina':'Planifiées', v: counts.Planifiée, icon: '🟡', color: 'var(--gold-400)' },
-          { l: lang==='mg'?'Lany':'Expirées',         v: counts.Expirée,   icon: '⚫', color: 'var(--text-muted)' },
-          { l: lang==='mg'?'Fepetran-kevitra':'Total', v: alertes.length,  icon: '📊', color: 'var(--text-primary)' },
+          { l: lang==='mg'?'Miasa':'Actives',      v: counts.Active,    icon: 'alert', color: '#f87171' },
+          { l: lang==='mg'?'Nolaminina':'Planifiées', v: counts.Planifiée, icon: 'clock', color: 'var(--gold-400)' },
+          { l: lang==='mg'?'Lany':'Expirées',         v: counts.Expirée,   icon: 'x', color: 'var(--text-muted)' },
+          { l: lang==='mg'?'Fepetran-kevitra':'Total', v: alertes.length,  icon: 'chart', color: 'var(--text-primary)' },
         ].map(s => (
           <div key={s.l} className="glass-card" style={{ padding: '18px 20px' }}>
-            <div style={{ fontSize: '1.3rem', marginBottom: 6 }}>{s.icon}</div>
+            <div style={{ fontSize: '1.3rem', marginBottom: 6 }}><Icon name={s.icon} size={20} /></div>
             <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '1.5rem', fontWeight: 800, color: s.color }}>{loading ? '…' : s.v}</div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>{s.l}</div>
           </div>
@@ -106,7 +107,7 @@ export default function Alertes() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   <span className={`badge ${TYPE_COLORS[a.type] || 'badge-gray'}`}>{a.type}</span>
-                  <span className={`badge ${URG_COLORS[a.urgence] || 'badge-gray'}`}>⚡ {a.urgence}</span>
+                  <span className={`badge ${URG_COLORS[a.urgence] || 'badge-gray'}`}><Icon name="zap" size={12} /> {a.urgence}</span>
                   <span className={`badge ${a.is_active ? 'badge-green' : 'badge-gray'}`}>{a.is_active ? 'Active' : 'Inactive'}</span>
                 </div>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -117,11 +118,11 @@ export default function Alertes() {
               <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 14 }}>{a.corps || a.message}</div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  📍 {lang === 'mg' ? 'Mpandray' : 'Destinataires'} : <strong style={{ color: 'var(--text-secondary)' }}>{a.destinataires || 'Tous'}</strong>
+                  <Icon name="pin" size={12} /> {lang === 'mg' ? 'Mpandray' : 'Destinataires'} : <strong style={{ color: 'var(--text-secondary)' }}>{a.destinataires || 'Tous'}</strong>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {a.is_active && (
-                    <button className="btn btn-danger btn-sm" onClick={() => handleDesactiver(a.id)}>🔕 Désactiver</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => handleDesactiver(a.id)}><Icon name="x" size={14} /> Désactiver</button>
                   )}
                 </div>
               </div>
@@ -135,12 +136,12 @@ export default function Alertes() {
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
           <div className="modal">
             <div className="modal-header">
-              <div className="modal-title">📡 Publier une alerte</div>
+              <div className="modal-title"><Icon name="alert" size={18} /> Publier une alerte</div>
               <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
             </div>
             {saved ? (
               <div className="alert alert-success" style={{ textAlign: 'center', flexDirection: 'column', padding: 32 }}>
-                <div style={{ fontSize: '2rem', marginBottom: 10 }}>📡</div>
+                <div style={{ fontSize: '2rem', marginBottom: 10 }}><Icon name="alert" size={32} /></div>
                 <div style={{ fontWeight: 700 }}>Alerte publiée avec succès</div>
                 <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: 4 }}>Diffusion SMS + Push en cours…</div>
               </div>
@@ -178,12 +179,12 @@ export default function Alertes() {
                   </div>
                 </div>
                 <div className="alert alert-warn" style={{ marginBottom: 20 }}>
-                  <span>⚡</span>
+                  <span><Icon name="zap" size={16} /></span>
                   <div style={{ fontSize: '0.78rem' }}>{lang==='mg'?"Haparitaka amin\'ny SMS (Africa\'s Talking) sy push notification ity filazana ity. Ny olom-pirenena tsy manana smartphone dia handray USSD.":"Cette alerte sera diffusée par SMS (Africa's Talking) et notifications push. Les citoyens sans smartphone recevront un USSD."}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                   <button type="button" className="btn btn-glass" onClick={() => setShowModal(false)}>{t.annuler}</button>
-                  <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? t.chargement : '📡 Diffuser →'}</button>
+                  <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? t.chargement : <><Icon name="alert" size={14} />&nbsp;Diffuser →</>}</button>
                 </div>
               </form>
             )}

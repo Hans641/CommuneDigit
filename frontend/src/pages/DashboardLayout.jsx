@@ -35,6 +35,7 @@ const T = {
 
 // Pages
 import DashboardHome  from './DashboardHome';
+import Icon from '../components/Icon';
 import EtatCivil      from './EtatCivil';
 import Certificats    from './Certificats';
 import Citoyens       from './Citoyens';
@@ -53,25 +54,25 @@ import DemandesCitoyens  from './DemandesCitoyens';
 // NAV uses translation keys — labels resolved at render time using T[lang]
 const NAV_DEF = [
   { sectionKey: 'principal', items: [
-    { id: 'home',         icon: '🏠', labelKey: 'tableau_bord',  badge: null, roles: ['all'] },
-    { id: 'citoyens',     icon: '👥', labelKey: 'citoyens',       badge: null, roles: ['all'] },
-    { id: 'etatcivil',    icon: '📋', labelKey: 'etat_civil',     badge: '3',  roles: ['all'] },
-    { id: 'certificats',  icon: '📜', labelKey: 'certificats',    badge: null, roles: ['all'] },
-    { id: 'paiements',    icon: '💳', labelKey: 'paiements',      badge: null, roles: ['all'] },
-    { id: 'impressions',  icon: '🖨️', labelKey: 'impressions',   badge: null, roles: ['all'] },
+    { id: 'home',         icon: 'home', labelKey: 'tableau_bord',  badge: null, roles: ['all'] },
+    { id: 'citoyens',     icon: 'users', labelKey: 'citoyens',       badge: null, roles: ['all'] },
+    { id: 'etatcivil',    icon: 'file', labelKey: 'etat_civil',     badge: '3',  roles: ['all'] },
+    { id: 'certificats',  icon: 'file', labelKey: 'certificats',    badge: null, roles: ['all'] },
+    { id: 'paiements',    icon: 'card', labelKey: 'paiements',      badge: null, roles: ['all'] },
+    { id: 'impressions',  icon: 'printer', labelKey: 'impressions',   badge: null, roles: ['all'] },
   ]},
   { sectionKey: 'territoire', items: [
-    { id: 'cartographie', icon: '🗺️', labelKey: 'cartographie',  badge: null, roles: ['all'] },
-    { id: 'alertes',      icon: '📡', labelKey: 'alertes',        badge: '2',  roles: ['all'] },
-    { id: 'statistiques', icon: '📊', labelKey: 'statistiques',   badge: null, roles: ['all'] },
+    { id: 'cartographie', icon: 'pin', labelKey: 'cartographie',  badge: null, roles: ['all'] },
+    { id: 'alertes',      icon: 'alert', labelKey: 'alertes',        badge: '2',  roles: ['all'] },
+    { id: 'statistiques', icon: 'chart', labelKey: 'statistiques',   badge: null, roles: ['all'] },
   ]},
   { sectionKey: 'administration', items: [
-    { id: 'agents',   icon: '👔', labelKey: 'agents', badge: null, roles: ['Administrateur', 'Ministère MID'] },
-    { id: 'auditlog', icon: '🔍', labelKey: 'audit',  badge: '1',  roles: ['Administrateur', 'Ministère MID'] },
+    { id: 'agents',   icon: 'user', labelKey: 'agents', badge: null, roles: ['Administrateur', 'Ministère MID'] },
+    { id: 'auditlog', icon: 'search', labelKey: 'audit',  badge: '1',  roles: ['Administrateur', 'Ministère MID'] },
   ]},
   { sectionKey: 'systeme', items: [
-    { id: 'chatbot',    icon: '🤖', labelKey: 'assistant',  badge: null, roles: ['all'] },
-    { id: 'parametres', icon: '⚙️', labelKey: 'parametres', badge: null, roles: ['all'] },
+    { id: 'chatbot',    icon: 'zap', labelKey: 'assistant',  badge: null, roles: ['all'] },
+    { id: 'parametres', icon: 'settings', labelKey: 'parametres', badge: null, roles: ['all'] },
   ]},
 ];
 
@@ -94,10 +95,10 @@ const PAGE_MAP = {
 
 // ── Notification panel ───────────────────────────────────────────
 const NOTIFICATIONS = [
-  { id: 1, type: 'warning', icon: '⚠️', title: 'Acte en attente de validation',   time: 'il y a 5 min',  read: false },
-  { id: 2, type: 'info',    icon: '📡', title: 'Alerte Santé publiée avec succès', time: 'il y a 1h',    read: false },
-  { id: 3, type: 'success', icon: '✅', title: 'Synchronisation complète',          time: 'il y a 3h',    read: true },
-  { id: 4, type: 'info',    icon: '💳', title: 'Nouveau paiement — 25 000 Ar',     time: 'hier',          read: true },
+  { id: 1, type: 'warning', icon: 'alert', title: 'Acte en attente de validation',   time: 'il y a 5 min',  read: false },
+  { id: 2, type: 'info',    icon: 'alert', title: 'Alerte Santé publiée avec succès', time: 'il y a 1h',    read: false },
+  { id: 3, type: 'success', icon: 'check', title: 'Synchronisation complète',          time: 'il y a 3h',    read: true },
+  { id: 4, type: 'info',    icon: 'card', title: 'Nouveau paiement — 25 000 Ar',     time: 'hier',          read: true },
 ];
 
 function NotifPanel({ onClose, lang }) {
@@ -135,7 +136,7 @@ function NotifPanel({ onClose, lang }) {
           }}
             onClick={() => setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))}
           >
-            <span style={{ fontSize: '1.1rem', marginTop: 1 }}>{n.icon}</span>
+            <span style={{ fontSize: '1.1rem', marginTop: 1 }}><Icon name={n.icon} size={18} /></span>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '0.82rem', fontWeight: n.read ? 400 : 700, color: n.read ? 'var(--text-secondary)' : 'var(--text-primary)', lineHeight: 1.4 }}>{n.title}</div>
               <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 3 }}>{n.time}</div>
@@ -155,13 +156,13 @@ function NotifPanel({ onClose, lang }) {
 
 // ── Search overlay ───────────────────────────────────────────────
 const SEARCH_ITEMS = [
-  { label: 'Rakoto Jean', sub: 'Citoyen · Sabotsy Namehana', icon: '👤', page: 'citoyens' },
-  { label: 'EC-0091 — Acte de naissance', sub: 'État civil · Validé', icon: '📋', page: 'etatcivil' },
-  { label: 'CRT-002 — Certificat héritage', sub: 'Certificats · En cours', icon: '📜', page: 'certificats' },
-  { label: 'TXN-001 — Taxe locale', sub: 'Paiements · 25 000 Ar', icon: '💳', page: 'paiements' },
-  { label: 'Alerte Vaccination Polio', sub: 'Alertes · Active · Haute urgence', icon: '📡', page: 'alertes' },
-  { label: 'Rasoa Nivo — Agent AGT-002', sub: 'Agents · Ambohimanga', icon: '👔', page: 'agents' },
-  { label: 'Statistiques Fokontany', sub: 'Mai 2026 · 89 actes', icon: '📊', page: 'statistiques' },
+  { label: 'Rakoto Jean', sub: 'Citoyen · Sabotsy Namehana', icon: 'user', page: 'citoyens' },
+  { label: 'EC-0091 — Acte de naissance', sub: 'État civil · Validé', icon: 'file', page: 'etatcivil' },
+  { label: 'CRT-002 — Certificat héritage', sub: 'Certificats · En cours', icon: 'file', page: 'certificats' },
+  { label: 'TXN-001 — Taxe locale', sub: 'Paiements · 25 000 Ar', icon: 'card', page: 'paiements' },
+  { label: 'Alerte Vaccination Polio', sub: 'Alertes · Active · Haute urgence', icon: 'alert', page: 'alertes' },
+  { label: 'Rasoa Nivo — Agent AGT-002', sub: 'Agents · Ambohimanga', icon: 'user', page: 'agents' },
+  { label: 'Statistiques Fokontany', sub: 'Mai 2026 · 89 actes', icon: 'chart', page: 'statistiques' },
 ];
 
 function SearchOverlay({ query, onNavigate, onClose }) {
@@ -189,7 +190,7 @@ function SearchOverlay({ query, onNavigate, onClose }) {
             onMouseLeave={e => e.currentTarget.style.background = 'none'}
             onClick={() => { onNavigate(r.page); onClose(); }}
           >
-            <span style={{ fontSize: '1.1rem' }}>{r.icon}</span>
+            <span style={{ fontSize: '1.1rem' }}><Icon name={r.icon} size={18} /></span>
             <div>
               <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{r.label}</div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 1 }}>{r.sub}</div>
@@ -257,7 +258,7 @@ export default function DashboardLayout() {
           gap: '10px',
           overflow: 'hidden' // Empêche tout ce qui dépasse d'être visible
         }}>
-          <div className="logo-icon" style={{ fontSize: '1.6rem', flexShrink: 0 }}>🌿</div>
+          <div className="logo-icon" style={{ fontSize: '1.6rem', flexShrink: 0 }}><Icon name="rocket" size={20} /></div>
           <div className="logo-text" style={{ minWidth: 0 }}>
             <div className="logo-name" style={{ 
               fontFamily: 'Syne, sans-serif', 
@@ -288,7 +289,7 @@ export default function DashboardLayout() {
                   className={`nav-item ${active === item.id ? 'active' : ''}`}
                   onClick={() => navigate(item.id)}
                 >
-                  <span className="nav-icon">{item.icon}</span>
+                  <span className="nav-icon"><Icon name={item.icon} size={18} /></span>
                   {item.label}
                   {item.badge && <span className="nav-badge">{item.badge}</span>}
                 </button>
@@ -300,7 +301,7 @@ export default function DashboardLayout() {
         {/* Role badge */}
         <div style={{ padding: '10px 12px' }}>
           <div style={{ padding: '8px 12px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 10, fontSize: '0.72rem', color: 'var(--emerald-400)', display: 'flex', gap: 6, alignItems: 'center' }}>
-            <span>🛡️</span> {userRole}
+            <span><Icon name="lock" size={14} /></span> {userRole}
           </div>
         </div>
 
@@ -335,8 +336,8 @@ export default function DashboardLayout() {
 
           {/* Search */}
           <div ref={searchRef} style={{ position: 'relative', flex: 1, maxWidth: 480 }}>
-            <div className="topbar-search" onClick={() => setShowSearch(true)}>
-              <span className="topbar-search-icon">🔍</span>
+              <div className="topbar-search" onClick={() => setShowSearch(true)}>
+              <span className="topbar-search-icon"><Icon name="search" size={16} /></span>
               <input
                 value={search}
                 onChange={e => { setSearch(e.target.value); setShowSearch(true); }}
@@ -378,7 +379,7 @@ export default function DashboardLayout() {
             {/* Notifications */}
             <div ref={notifRef} style={{ position: 'relative' }}>
               <button className="icon-btn" onClick={() => setShowNotifs(v => !v)}>
-                🔔
+                <Icon name="bell" size={18} />
                 {unreadCount > 0 && (
                   <span style={{ position: 'absolute', top: 4, right: 4, width: 16, height: 16, background: '#ef4444', borderRadius: '50%', fontSize: '0.6rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid rgba(0,0,0,0.4)' }}>
                     {unreadCount}
@@ -422,7 +423,7 @@ export default function DashboardLayout() {
                   transition: 'all 0.15s',
                 }}
               >
-                {item.icon} {item.label}
+                <span style={{ marginRight: 8 }}><Icon name={item.icon} size={14} /></span> {item.label}
               </button>
             );
           })}
