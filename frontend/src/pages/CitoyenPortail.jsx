@@ -323,7 +323,7 @@ function OngletProjets() {
                 </div>
                 {p.budget_ar && (
                   <div style={{ fontSize: '0.82rem', color: C.textMuted }}>
-                    Budget : <strong style={{ color: C.gold }}>{(p.budget_ar / 1_000_000).toFixed(1)} M Ar</strong>
+                    Budget : <strong style={{ color: C.gold }}>{(p.budget_ar / 1000000).toFixed(1)} M Ar</strong>
                   </div>
                 )}
                 <div>
@@ -349,9 +349,11 @@ function OngletProjets() {
 function ModalDemande({ service, mesDemandes, onClose, onSuccess }) {
   const [step, setStep] = useState(1); // 1=info, 2=docs, 3=confirmation
   const [attachments, setAttachments] = useState({});
+  const [uploading, setUploading] = useState({});
   const [donnees, setDonnees] = useState({});
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const draftId = useRef(`draft-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
 
   const docs = service.documents_requis || [];
   const docsObligatoires = docs.filter(d => d.obligatoire !== false);
@@ -365,11 +367,34 @@ function ModalDemande({ service, mesDemandes, onClose, onSuccess }) {
     );
   };
 
-  const handleFileChange = (docCode, file) => {
+  const handleFileChange = async (docCode, file) => {
     if (!file) return;
-    // Simuler upload — en prod, utiliser FormData + endpoint /upload
-    const url = URL.createObjectURL(file);
-    setAttachments(prev => ({ ...prev, [docCode]: { nom: file.name, url, type: docCode, taille: file.size, obtenu_ici: false } }));
+    setErr('');
+    setUploading(prev => ({ ...prev, [docCode]: true }));
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('demande_id', draftId.current);
+
+    try {
+      const res = await citoyenEspaceAPI.uploadFile(formData);
+      setAttachments(prev => ({
+        ...prev,
+        [docCode]: {
+          id: res.id,
+          nom: res.nom,
+          url: res.url,
+          type: docCode,
+          mime_type: res.type || file.type,
+          taille: res.taille,
+          obtenu_ici: false,
+        },
+      }));
+    } catch (e) {
+      setErr(e.data?.detail || e.message || 'Erreur lors du téléchargement du fichier');
+    } finally {
+      setUploading(prev => ({ ...prev, [docCode]: false }));
+    }
   };
 
   const handleUseExisting = (docCode, demande) => {
@@ -462,6 +487,20 @@ function ModalDemande({ service, mesDemandes, onClose, onSuccess }) {
               {docs.map(doc => {
                 const attached = attachments[doc.code];
                 const existingDemande = doc.obtainable_here ? demandeSatisfaisant(doc.code) : null;
+
+                const uploadControl = uploading[doc.code] ? (
+                  <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px dashed ' + C.glassBorder, borderRadius: 10, padding: '14px', textAlign: 'center', fontSize: '0.82rem', color: C.textMuted }}>
+                    <Icon name="download" size={14} /> Téléchargement en cours…
+                  </div>
+                ) : (
+                  <label style={{ display: 'block', cursor: 'pointer' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px dashed ' + C.glassBorder, borderRadius: 10, padding: '12px', textAlign: 'center', fontSize: '0.82rem', color: C.textMuted }}>
+                      <Icon name="download" size={14} /> Glisser ou cliquer pour importer ({doc.obligatoire === false ? 'optionnel' : 'obligatoire'})
+                    </div>
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }} onChange={e => handleFileChange(doc.code, e.target.files[0])} />
+                  </label>
+                );
+
                 return (
                   <div key={doc.code} style={{
                     background: attached ? 'rgba(16,185,129,0.06)' : 'rgba(255,255,255,0.03)',
@@ -501,12 +540,9 @@ function ModalDemande({ service, mesDemandes, onClose, onSuccess }) {
                             <Icon name="zap" size={14} /> Ce document peut être demandé sur cette plateforme. Soumettez d'abord une demande de <strong>{doc.label}</strong>, puis revenez.
                           </div>
                         )}
-                        <label style={{ display: 'block', cursor: 'pointer' }}>
-                          <div style={{ background: 'rgba(255,255,255,0.05)', border: `1px dashed ${C.glassBorder}`, borderRadius: 10, padding: '12px', textAlign: 'center', fontSize: '0.82rem', color: C.textMuted }}>
-                            <Icon name="download" size={14} /> Glisser ou cliquer pour importer ({doc.obligatoire === false ? 'optionnel' : 'obligatoire'})
-                          </div>
-                          <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }} onChange={e => handleFileChange(doc.code, e.target.files[0])} />
-                        </label>
+                        <div>
+                          {uploadControl}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -578,7 +614,7 @@ function OngletServices({ mesDemandes, onDemandeSuccess }) {
 
   if (success) return (
     <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-      <div style={{ fontSize: '4rem', marginBottom: 20 }}><Icon name="rocket" size={48} /></div>
+      <div style={{ fontSize: '4rem', marginBottom: 20 }}>🎉</div>
       <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 900, fontSize: '1.5rem', color: C.text, marginBottom: 12 }}>
         Demande soumise avec succès !
       </div>

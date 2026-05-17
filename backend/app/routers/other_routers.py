@@ -482,6 +482,8 @@ def alertes_publiques(db: Session = Depends(get_db)):
 #  ESPACE AGENT — Traitement des demandes citoyens
 # ══════════════════════════════════════════════════════
 from app.models.models import DemandeService as DemandeSvc, CatalogueService as CatSvc, CompteCitoyen as CptCit
+from app.services.notification_service import notify_on_demande_transition
+from app.services.document_service import DocumentGenerationService
 
 router_demandes = APIRouter(prefix="/demandes-citoyens", tags=["Demandes Citoyens"])
 
@@ -543,11 +545,32 @@ def traiter_demande(
     VALID = ["En traitement", "Approuvée", "Rejetée", "Prête"]
     if body.statut not in VALID:
         raise HTTPException(422, f"Statut invalide. Valeurs : {VALID}")
-    d.statut        = body.statut
-    d.agent_id      = current.id
-    if body.note_agent:    d.note_agent     = body.note_agent
-    if body.document_final: d.document_final = body.document_final
+
+    ancien_statut = d.statut
+    d.statut      = body.statut
+    d.agent_id    = current.id
+    if body.note_agent:
+        d.note_agent = body.note_agent
+    if body.document_final:
+        d.document_final = body.document_final
+
     db.commit()
+
+    if ancien_statut != d.statut:
+        try:
+            notify_on_demande_transition(db, d, ancien_statut, d.statut)
+        except Exception as exc:
+            print(f"Erreur notification transition statut: {exc}")
+
+    if not body.document_final and d.statut in ["Approuvée", "Prête"]:
+        try:
+            doc = DocumentGenerationService.create_or_update_document(db, d, agent_id=current.id)
+            if doc and not d.document_final:
+                d.document_final = doc.url_telechargement
+                db.commit()
+        except Exception as exc:
+            print(f"Erreur génération document automatique: {exc}")
+
     return {"message": "Demande mise à jour", "statut": d.statut, "reference": d.reference}
 
 

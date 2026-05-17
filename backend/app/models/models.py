@@ -331,3 +331,105 @@ class DemandePub(Base):
     statut      = Column(String(50), default="Reçue")
     created_at  = Column(DateTime, default=datetime.utcnow)
     updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ── PieceJointe — fichiers uploadés par les citoyens ────────────
+class PieceJointe(Base):
+    """Fichier uploadé lors d'une demande de service."""
+    __tablename__ = "pieces_jointes"
+
+    id               = Column(String(36), primary_key=True, default=new_uuid)
+    demande_id       = Column(String(36), ForeignKey("demandes_service.id"), nullable=False, index=True)
+    nom_fichier      = Column(String(300), nullable=False)
+    type_code        = Column(String(50), nullable=False)  # code du document requis (ex: CERT_RESIDENCE)
+    url_fichier      = Column(String(500), nullable=False)
+    mime_type        = Column(String(100), nullable=True)
+    taille_bytes     = Column(Integer, nullable=True)
+    hash_sha256      = Column(String(64), nullable=True)
+    obtenu_ici       = Column(Boolean, default=False)  # True si obtenu via une autre demande
+    demande_source   = Column(String(36), ForeignKey("demandes_service.id"), nullable=True)
+    created_at       = Column(DateTime, default=datetime.utcnow)
+
+    demande          = relationship("DemandeService", foreign_keys=[demande_id])
+    demande_src      = relationship("DemandeService", foreign_keys=[demande_source])
+
+
+# ── Notification — alertes citoyens ──────────────────────────────
+class Notification(Base):
+    """Notifications envoyées aux citoyens sur leurs demandes."""
+    __tablename__ = "notifications"
+
+    id               = Column(String(36), primary_key=True, default=new_uuid)
+    compte_id        = Column(Integer, ForeignKey("comptes_citoyens.id"), nullable=False, index=True)
+    demande_id       = Column(String(36), ForeignKey("demandes_service.id"), nullable=True, index=True)
+    type_notif       = Column(
+        SAEnum("CREATION", "SOUMISSION", "TRAITEMENT", "APPROBATION", "REJET", "PRET", "PAIEMENT", 
+               name="type_notif_enum"),
+        nullable=False
+    )
+    titre            = Column(String(200), nullable=False)
+    message          = Column(Text, nullable=False)
+    
+    # Canaux
+    via_email        = Column(Boolean, default=False)
+    via_sms          = Column(Boolean, default=False)
+    via_push         = Column(Boolean, default=False)
+    
+    # Tracking
+    is_read          = Column(Boolean, default=False)
+    read_at          = Column(DateTime, nullable=True)
+    
+    # Provider tracking
+    email_id         = Column(String(100), nullable=True)
+    sms_id           = Column(String(100), nullable=True)
+    push_id          = Column(String(100), nullable=True)
+    
+    created_at       = Column(DateTime, default=datetime.utcnow)
+
+    compte           = relationship("CompteCitoyen")
+    demande          = relationship("DemandeService")
+
+
+# ── DocumentFinal — documents délivrés aux citoyens ─────────────
+class DocumentFinal(Base):
+    """Document finalisé et délivrable au citoyen."""
+    __tablename__ = "documents_finaux"
+
+    id               = Column(String(36), primary_key=True, default=new_uuid)
+    demande_id       = Column(String(36), ForeignKey("demandes_service.id"), unique=True, nullable=False, index=True)
+    type_document    = Column(String(100), nullable=False)  # "PDF", "ORIGINAL", etc.
+    url_telechargement = Column(String(500), nullable=False)
+    nom_fichier      = Column(String(300), nullable=False)
+    taille_bytes     = Column(Integer, nullable=True)
+    hash_sha256      = Column(String(64), nullable=True)
+    
+    # Metadata
+    date_generation  = Column(DateTime, default=datetime.utcnow)
+    date_validation  = Column(DateTime, nullable=True)
+    agent_id         = Column(Integer, ForeignKey("agents.id"), nullable=True)
+    
+    # Expiration (optionnel)
+    expires_at       = Column(DateTime, nullable=True)
+    
+    created_at       = Column(DateTime, default=datetime.utcnow)
+
+    demande          = relationship("DemandeService")
+    agent            = relationship("Agent")
+
+
+# ── EvenementDemande — historique de transitions ─────────────────
+class EvenementDemande(Base):
+    """Historique des événements et transitions d'une demande."""
+    __tablename__ = "evenements_demande"
+
+    id               = Column(String(36), primary_key=True, default=new_uuid)
+    demande_id       = Column(String(36), ForeignKey("demandes_service.id"), nullable=False, index=True)
+    type_event       = Column(String(50), nullable=False)  # "CREATION", "SOUMISSION", "TRANSITION_STATUT", etc.
+    ancien_statut    = Column(String(50), nullable=True)
+    nouveau_statut   = Column(String(50), nullable=True)
+    description      = Column(Text, nullable=True)
+    agent_id         = Column(Integer, ForeignKey("agents.id"), nullable=True)
+    timestamp        = Column(DateTime, default=datetime.utcnow, index=True)
+
+    demande          = relationship("DemandeService")
+    agent            = relationship("Agent")

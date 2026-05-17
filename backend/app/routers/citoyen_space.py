@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Request
+from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
@@ -16,8 +17,11 @@ from app.core.config import get_db
 from app.core.security import create_access_token, verify_password, hash_password, decode_token
 from app.models.models import (
     CompteCitoyen, Citoyen, Fokontany,
-    CatalogueService, DemandeService, ProjetCommune, Alerte
+    CatalogueService, DemandeService, ProjetCommune, Alerte, Notification, PieceJointe, DocumentFinal
 )
+from app.services.file_service import FileService
+from app.services.notification_service import NotificationService
+from app.services.document_service import DocumentGenerationService
 
 router = APIRouter(prefix="/espace-citoyen", tags=["Espace Citoyen"])
 
@@ -74,6 +78,11 @@ class ProfilUpdate(BaseModel):
     telephone: Optional[str] = None
     adresse: Optional[str] = None
     fokontany_id: Optional[int] = None
+
+class ChangePasswordRequest(BaseModel):
+    ancien_password: str = Field(..., min_length=1)
+    nouveau_password: str = Field(..., min_length=6)
+    confirmer_password: str = Field(..., min_length=6)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -282,6 +291,22 @@ def creer_demande(
     db.add(demande)
     db.commit()
     db.refresh(demande)
+    
+    # Créer une notification de création
+    try:
+        NotificationService.create_notification(
+            db=db,
+            compte_citoyen=compte,
+            type_notif="CREATION",
+            demande=demande,
+            via_email=True,
+            via_sms=True,
+            via_push=True,
+        )
+    except Exception as e:
+        # Log l'erreur mais ne pas échouer la soumission
+        print(f"Erreur lors de la création de la notification: {e}")
+    
     return {
         "reference": demande.reference,
         "statut": demande.statut,
@@ -371,11 +396,28 @@ def payer_demande(
         raise HTTPException(404, "Demande introuvable")
     if d.statut_paiement == "Payé":
         raise HTTPException(400, "Déjà payé")
+    
     d.statut_paiement = "Payé"
     d.reference_paiement = body.reference_paiement
     if d.statut == "Soumise":
         d.statut = "En traitement"
     db.commit()
+    
+    # Créer une notification de paiement confirmé
+    try:
+        NotificationService.create_notification(
+            db=db,
+            compte_citoyen=compte,
+            type_notif="PAIEMENT",
+            demande=d,
+            montant=d.montant_ar,
+            via_email=True,
+            via_sms=True,
+            via_push=True,
+        )
+    except Exception as e:
+        print(f"Erreur lors de la création de la notification de paiement: {e}")
+    
     return {"message": "Paiement confirmé", "reference": d.reference}
 
 
@@ -385,3 +427,366 @@ def payer_demande(
 @router.get("/fokontany", summary="Liste des fokontany")
 def list_fokontany(db: Session = Depends(get_db)):
     return db.query(Fokontany).filter(Fokontany.is_online == True).all()
+
+
+# ══════════════════════════════════════════════════════════════════
+#  UPLOADS DE FICHIERS
+# ══════════════════════════════════════════════════════════════════
+@router.post("/upload", status_code=201, summary="Télécharger un fichier")
+async def upload_file(
+    file: UploadFile = File(...),
+    demande_id: str = Form(...),
+    compte: CompteCitoyen = Depends(get_current_citoyen),
+    db: Session = Depends(get_db),
+):
+    """
+    Télécharge un fichier (document, justificatif, pièce jointe).
+    Valide le type MIME et la taille.
+    """
+    try:
+        # Lire le contenu du fichier
+        contents = await file.read()
+        
+        # Valider le fichier
+        FileService.validate_file(file.filename, len(contents), file.content_type)
+        
+        # Sauvegarder le fichier
+        file_url, sha256 = FileService.save_upload(
+            file_content=contents,
+            original_filename=file.filename,
+            demande_id=demande_id or str(compte.id),
+            user_id=compte.id
+        )
+        
+        # Créer un enregistrement PieceJointe
+        piece = PieceJointe(
+            demande_id=demande_id,
+            compte_id=compte.id,
+            nom_fichier=file.filename,
+            type_code=file.content_type,
+            url_fichier=file_url,
+            mime_type=file.content_type,
+            taille_bytes=len(contents),
+            hash_sha256=sha256,
+            obtenu_ici=False,
+        )
+        db.add(piece)
+        db.commit()
+        db.refresh(piece)
+        
+        return {
+            "id": piece.id,
+            "nom": piece.nom,
+            "url": file_url,
+            "type": file.content_type,
+            "taille": FileService.format_file_size(len(contents)),
+            "hash": sha256,
+        }
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Erreur lors du téléchargement: {str(e)}")
+
+
+@router.delete("/upload/{piece_id}", summary="Supprimer un fichier téléchargé")
+def delete_upload(
+    piece_id: str,
+    compte: CompteCitoyen = Depends(get_current_citoyen),
+    db: Session = Depends(get_db),
+):
+    """Supprime un fichier téléchargé (avant soumission)."""
+    piece = db.query(PieceJointe).filter(
+        PieceJointe.id == piece_id,
+        PieceJointe.compte_id == compte.id,
+    ).first()
+    if not piece:
+        raise HTTPException(404, "Fichier introuvable")
+    
+    # Supprimer du disque
+    try:
+        FileService.delete_file(piece.url)
+    except Exception:
+        pass  # Ignorer si le fichier physique n'existe pas
+    
+    # Supprimer de la BD
+    db.delete(piece)
+    db.commit()
+    return {"message": "Fichier supprimé"}
+
+
+# ══════════════════════════════════════════════════════════════════
+#  TÉLÉCHARGER UN FICHIER (GET)
+# ══════════════════════════════════════════════════════════════════
+@router.get("/fichier/{piece_id}", summary="Télécharger un fichier")
+def get_file(
+    piece_id: str,
+    compte: CompteCitoyen = Depends(get_current_citoyen),
+    db: Session = Depends(get_db),
+):
+    """Récupère le chemin d'un fichier (pour téléchargement côté client)."""
+    piece = db.query(PieceJointe).filter(
+        PieceJointe.id == piece_id,
+        PieceJointe.compte_id == compte.id,
+    ).first()
+    if not piece:
+        raise HTTPException(404, "Fichier introuvable")
+    
+    file_path = FileService.get_file_path(piece.url_fichier)
+    if not file_path:
+        raise HTTPException(404, "Fichier introuvable sur le serveur")
+    return FileResponse(
+        path=file_path,
+        media_type=piece.mime_type or "application/octet-stream",
+        filename=piece.nom_fichier,
+    )
+
+
+# ══════════════════════════════════════════════════════════════════
+#  NOTIFICATIONS
+# ══════════════════════════════════════════════════════════════════
+@router.get("/notifications", summary="Mes notifications")
+def get_notifications(
+    limit: int = 50,
+    unread_only: bool = False,
+    compte: CompteCitoyen = Depends(get_current_citoyen),
+    db: Session = Depends(get_db),
+):
+    """Récupère les notifications du citoyen."""
+    notifs = NotificationService.get_notifications(
+        db=db,
+        compte_id=compte.id,
+        limit=limit,
+        unread_only=unread_only,
+    )
+    return [
+        {
+            "id": n.id,
+            "type": n.type_notif,
+            "titre": n.titre,
+            "message": n.message,
+            "via_email": n.via_email,
+            "via_sms": n.via_sms,
+            "via_push": n.via_push,
+            "is_read": n.is_read,
+            "created_at": n.created_at.isoformat(),
+        }
+        for n in notifs
+    ]
+
+
+@router.patch("/notifications/{notif_id}/lire", summary="Marquer une notification comme lue")
+def mark_notification_read(
+    notif_id: str,
+    compte: CompteCitoyen = Depends(get_current_citoyen),
+    db: Session = Depends(get_db),
+):
+    """Marque une notification comme lue."""
+    notif = db.query(Notification).filter(
+        Notification.id == notif_id,
+        Notification.compte_id == compte.id,
+    ).first()
+    if not notif:
+        raise HTTPException(404, "Notification introuvable")
+    
+    NotificationService.mark_as_read(db, notif.id)
+    return {"message": "Notification marquée comme lue"}
+
+
+@router.patch("/notifications/tout-marquer-lu", summary="Marquer toutes les notifications comme lues")
+def mark_all_notifications_read(
+    compte: CompteCitoyen = Depends(get_current_citoyen),
+    db: Session = Depends(get_db),
+):
+    """Marque toutes les notifications comme lues."""
+    count = NotificationService.mark_all_as_read(db, compte.id)
+    return {"message": f"{count} notification(s) marquée(s) comme lue(s)"}
+
+
+@router.delete("/notifications/{notif_id}", summary="Supprimer une notification")
+def delete_notification(
+    notif_id: str,
+    compte: CompteCitoyen = Depends(get_current_citoyen),
+    db: Session = Depends(get_db),
+):
+    """Supprime une notification."""
+    notif = db.query(Notification).filter(
+        Notification.id == notif_id,
+        Notification.compte_id == compte.id,
+    ).first()
+    if not notif:
+        raise HTTPException(404, "Notification introuvable")
+    
+    NotificationService.delete_notification(db, notif.id)
+    return {"message": "Notification supprimée"}
+
+
+# ══════════════════════════════════════════════════════════════════
+#  DOCUMENTS FINALISÉS
+# ══════════════════════════════════════════════════════════════════
+@router.get("/demandes/{demande_id}/document", summary="Télécharger le document finalisé")
+def get_document(
+    demande_id: str,
+    compte: CompteCitoyen = Depends(get_current_citoyen),
+    db: Session = Depends(get_db),
+):
+    """Récupère le document finalisé pour une demande."""
+    d = db.query(DemandeService).filter(
+        DemandeService.id == demande_id,
+        DemandeService.compte_id == compte.id,
+    ).first()
+    if not d:
+        raise HTTPException(404, "Demande introuvable")
+    
+    if not d.document_final:
+        raise HTTPException(404, "Document non disponible pour cette demande")
+    
+    doc = db.query(DocumentFinal).filter(DocumentFinal.demande_id == demande_id).first()
+    if not doc:
+        raise HTTPException(404, "Document introuvable")
+    
+    # Vérifier l'expiration
+    if not DocumentGenerationService.is_document_valid(doc):
+        raise HTTPException(410, "Document a expiré (validité 30 jours)")
+    
+    file_path = DocumentGenerationService.get_document_file(doc.url_telechargement)
+    if not file_path:
+        raise HTTPException(404, "Document introuvable sur le serveur")
+    return FileResponse(
+        path=file_path,
+        media_type="text/html",
+        filename=doc.nom_fichier,
+    )
+
+
+@router.post("/demandes/{demande_id}/generer-document", status_code=201, summary="Générer le document finalisé")
+def generate_document(
+    demande_id: str,
+    compte: CompteCitoyen = Depends(get_current_citoyen),
+    db: Session = Depends(get_db),
+):
+    """Génère le document finalisé pour une demande (après approbation)."""
+    d = db.query(DemandeService).filter(
+        DemandeService.id == demande_id,
+        DemandeService.compte_id == compte.id,
+    ).first()
+    if not d:
+        raise HTTPException(404, "Demande introuvable")
+    
+    if d.statut not in ["Approuvée", "Prête à retirer", "Paiement complété"]:
+        raise HTTPException(
+            400,
+            f"Document ne peut être généré que pour les demandes approuvées (statut actuel: {d.statut})"
+        )
+    
+    try:
+        # Générer et sauvegarder le document
+        doc = DocumentGenerationService.create_or_update_document(
+            db=db,
+            demande=d,
+            agent_id=None,
+        )
+        
+        return {
+            "id": doc.id,
+            "url": doc.url,
+            "created_at": doc.created_at.isoformat(),
+            "expires_at": doc.date_expiration.isoformat() if doc.date_expiration else None,
+            "message": "Document généré avec succès",
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Erreur lors de la génération du document: {str(e)}")
+
+
+# ══════════════════════════════════════════════════════════════════
+#  GESTION DU MOT DE PASSE
+# ══════════════════════════════════════════════════════════════════
+@router.post("/change-password", summary="Changer mon mot de passe")
+def change_password(
+    body: ChangePasswordRequest,
+    compte: CompteCitoyen = Depends(get_current_citoyen),
+    db: Session = Depends(get_db),
+):
+    """Change le mot de passe du citoyen."""
+    # Vérifier l'ancien mot de passe
+    if not verify_password(body.ancien_password, compte.hashed_password):
+        raise HTTPException(401, "Ancien mot de passe incorrect")
+    
+    # Vérifier que les deux nouveaux mots de passe correspondent
+    if body.nouveau_password != body.confirmer_password:
+        raise HTTPException(400, "Les nouveaux mots de passe ne correspondent pas")
+    
+    # Vérifier qu'il n'est pas identique à l'ancien
+    if body.nouveau_password == body.ancien_password:
+        raise HTTPException(400, "Le nouveau mot de passe doit être différent de l'ancien")
+    
+    # Mettre à jour le mot de passe
+    compte.hashed_password = hash_password(body.nouveau_password)
+    db.commit()
+    
+    return {"message": "Mot de passe changé avec succès"}
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str = Field(..., min_length=5)
+
+@router.post("/forgot-password", summary="Demander un reset de mot de passe")
+def forgot_password(
+    body: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Envoie un email avec un lien de réinitialisation.
+    (En production, intégrer avec SendGrid ou équivalent)
+    """
+    compte = db.query(CompteCitoyen).filter(
+        CompteCitoyen.email == body.email.lower()
+    ).first()
+    
+    if not compte:
+        # Ne pas révéler si l'email existe (sécurité)
+        return {"message": "Si un compte existe, un email de reset a été envoyé"}
+    
+    # Générer un token de reset (valide 1 heure)
+    reset_token = create_access_token(
+        {"sub": str(compte.id), "type": "reset"},
+        expires_delta=timedelta(hours=1)
+    )
+    
+    # TODO: Envoyer l'email avec le lien:
+    # email = f"https://votre-domaine.com/reset-password?token={reset_token}"
+    # NotificationService.send_email(compte.email, "Réinitialisation de mot de passe", email)
+    
+    return {"message": "Si un compte existe, un email de reset a été envoyé"}
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    nouveau_password: str = Field(..., min_length=6)
+    confirmer_password: str = Field(..., min_length=6)
+
+@router.post("/reset-password", summary="Réinitialiser le mot de passe")
+def reset_password(
+    body: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    """Réinitialise le mot de passe avec un token de reset."""
+    # Valider le token
+    payload = decode_token(body.token)
+    if not payload or payload.get("type") != "reset":
+        raise HTTPException(401, "Token invalide")
+    
+    compte = db.query(CompteCitoyen).filter(
+        CompteCitoyen.id == int(payload["sub"])
+    ).first()
+    if not compte:
+        raise HTTPException(404, "Compte introuvable")
+    
+    # Vérifier que les deux mots de passe correspondent
+    if body.nouveau_password != body.confirmer_password:
+        raise HTTPException(400, "Les mots de passe ne correspondent pas")
+    
+    # Mettre à jour le mot de passe
+    compte.hashed_password = hash_password(body.nouveau_password)
+    db.commit()
+    
+    return {"message": "Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter."}

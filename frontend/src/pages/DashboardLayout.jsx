@@ -8,6 +8,7 @@ const T = {
     tableau_bord: 'Tableau de bord', citoyens: 'Citoyens', etat_civil: 'État Civil',
     certificats: 'Certificats', paiements: 'Paiements', impressions: 'Impressions',
     cartographie: 'Cartographie', alertes: 'Alertes', statistiques: 'Statistiques',
+    demandes: 'Demandes citoyens',
     agents: 'Agents', audit: "Journal d'audit", assistant: 'Assistant IA', parametres: 'Paramètres',
     recherche_placeholder: 'Rechercher citoyen, dossier, acte… (⌘K)',
     synchronise: 'Synchronisé', notifs: 'Notifications', tout_lu: 'Tout marquer lu',
@@ -22,6 +23,7 @@ const T = {
     tableau_bord: 'Fikirakirana', citoyens: 'Olom-pirenena', etat_civil: 'Toe-piainana',
     certificats: 'Taratasy', paiements: 'Fandoavana', impressions: 'Fiprintan-taratasy',
     cartographie: 'Sarintany', alertes: 'Filazana', statistiques: 'Statistika',
+    demandes: 'Fangatahana',
     agents: 'Mpiasam-panjakana', audit: 'Fitanana-kaonty', assistant: 'Mpanampy AI', parametres: 'Fanamboarana',
     recherche_placeholder: 'Hikaroka olom-pirenena, rakitra, taratasy… (⌘K)',
     synchronise: 'Voatomombana', notifs: 'Filazana', tout_lu: 'Amaky rehetra',
@@ -68,6 +70,7 @@ const NAV_DEF = [
   ]},
   { sectionKey: 'administration', items: [
     { id: 'agents',   icon: 'user', labelKey: 'agents', badge: null, roles: ['Administrateur', 'Ministère MID'] },
+    { id: 'demandes', icon: 'file', labelKey: 'demandes', badge: null, roles: ['Administrateur', 'Ministère MID'] },
     { id: 'auditlog', icon: 'search', labelKey: 'audit',  badge: '1',  roles: ['Administrateur', 'Ministère MID'] },
   ]},
   { sectionKey: 'systeme', items: [
@@ -388,6 +391,10 @@ export default function DashboardLayout() {
               </button>
               {showNotifs && <NotifPanel onClose={() => setShowNotifs(false)} lang={lang} />}
             </div>
+
+            <button className="icon-btn" title="Déconnexion" onClick={logout} style={{ marginLeft: 6 }}>
+              ⏏
+            </button>
 
             {/* User menu */}
             <div className="topbar-user" onClick={() => navigate('parametres')}>

@@ -6,6 +6,7 @@ from datetime import datetime
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import Base, engine, get_settings
 from app.core.security import hash_password
@@ -20,6 +21,8 @@ from app.routers.other_routers import (
     router_dashboard, router_sync, router_public,
     router_demandes,
 )
+from app.services.file_service import UPLOAD_DIR
+from app.services.document_service import DOCUMENTS_DIR
 
 settings = get_settings()
 
@@ -249,6 +252,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Fichiers uploadés et documents générés servis directement
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+app.mount("/documents", StaticFiles(directory=str(DOCUMENTS_DIR)), name="documents")
 
 PREFIX = "/api"
 app.include_router(auth_router,           prefix=PREFIX)

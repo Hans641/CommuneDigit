@@ -181,6 +181,26 @@ export const citoyenEspaceAPI = {
   getDemande: (id)           => citoyenReq('GET', `/demandes/${id}`),
   soumettre:  (data)         => citoyenReq('POST', '/demandes', data),
   payer:      (id, data)     => citoyenReq('POST', `/demandes/${id}/payer`, data),
+  uploadFile: async (formData) => {
+    const token = localStorage.getItem('cd_citoyen_token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch(`${CITOYEN_PREFIX}/upload`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (res.status === 401) {
+      localStorage.removeItem('cd_citoyen_token');
+      localStorage.removeItem('cd_citoyen');
+      window.dispatchEvent(new Event('cd:citoyen_unauthorized'));
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw Object.assign(new Error(err.detail || 'Erreur'), { status: res.status, data: err });
+    }
+    return res.json();
+  },
+  deleteUpload: (pieceId) => citoyenReq('DELETE', `/upload/${pieceId}`),
 };
 
 // ── Demandes citoyens (côté agent) ──────────────────────────────
