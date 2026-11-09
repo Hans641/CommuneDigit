@@ -26,7 +26,10 @@ pip install -r requirements.txt
 
 # Créer la DB et les tables
 psql -U postgres -c "CREATE DATABASE commune_db;"
-# Aucune migration Alembic versionnée n'est encore fournie.
+# Nouvelle base : appliquer les migrations avant de créer les comptes.
+python -m alembic upgrade head
+python -m app.schema check
+# Base existante non versionnée : suivre backend/MIGRATIONS.md (sauvegarde puis adoption).
 # Créer un administrateur ; le mot de passe sera demandé sans affichage.
 python manage_admin.py --matricule ADMIN-0001 --email admin@example.mg --nom Admin --prenom Commune
 
@@ -169,3 +172,8 @@ En développement uniquement, activer `PAYMENT_DEMO_ENABLED=true` dans `backend/
 En API : `POST /api/espace-citoyen/demandes/{id}/payer` avec `{"reference_paiement":"DEMO"}` et le jeton du citoyen propriétaire. Répéter la requête ne crée pas de nouvel encaissement. Hors mode démo, cette commande est refusée et les simulations précédentes ne permettent pas de délivrance. Le rapprochement manuel avec une transaction réelle reste disponible.
 
 `APP_ENV=production` refuse le debug, les paiements démo, les comptes démo automatiques et une clé JWT par défaut ou de moins de 32 caractères. Les comptes créés avec `manage_admin.py` n'ont pas de mot de passe prédéfini. La publication de ces paramètres ne constitue pas un déploiement de production validé.
+
+
+## Mises à jour du schéma
+
+Les nouvelles installations utilisent `alembic upgrade head` depuis `backend`. Les bases existantes non versionnées doivent être sauvegardées puis reprises avec `python -m app.schema adopt`. L’API ne crée plus de tables au démarrage et refuse un schéma non à jour. Voir [le guide des migrations](backend/MIGRATIONS.md) pour la reprise, la validation et les retours arrière.

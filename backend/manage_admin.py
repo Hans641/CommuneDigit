@@ -1,7 +1,7 @@
 """Create an administrator with a password entered privately in a terminal."""
 import argparse
 from getpass import getpass
-from app.core.config import Base, engine, SessionLocal
+from app.core.config import engine, SessionLocal
 from app.core.security import hash_password
 from app.models.models import Agent
 
@@ -16,7 +16,8 @@ def main():
     password = getpass('Mot de passe (12 caractères minimum) : ')
     if len(password) < 12 or password != getpass('Confirmer : '):
         raise SystemExit('Mot de passe trop court ou confirmation différente')
-    Base.metadata.create_all(engine)
+    from app.schema import require_current
+    require_current(engine)
     with SessionLocal() as db:
         if db.query(Agent).filter(Agent.matricule == args.matricule).first():
             raise SystemExit('Matricule déjà utilisé ; aucun compte modifié')

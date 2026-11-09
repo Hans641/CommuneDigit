@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.core.config import Base, engine, get_settings
+from app.core.config import engine, get_settings
 from app.core.security import hash_password, verify_password
 from app.models.models import Agent, Fokontany, CatalogueService, ProjetCommune
 from app.routers.auth import router as auth_router
@@ -228,7 +228,8 @@ def seed_db():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    from app.schema import require_current
+    require_current(engine)
     if settings.app_env == "production":
         from app.core.config import SessionLocal
         with SessionLocal() as db:

@@ -8,7 +8,7 @@ Les fichiers ne sont plus exposés par des répertoires statiques publics. Le po
 
 ## Mise en service
 
-Depuis `backend`, installer `requirements.txt`, puis redémarrer `uvicorn app.main:app`. Le démarrage existant `Base.metadata.create_all` crée la nouvelle table additive `fichiers_citoyens` (aucune colonne existante modifiée). La table historique `pieces_jointes` est conservée : ses anciennes lignes ne sont pas migrées automatiquement et nécessitent un rattachement à leurs propriétaires avant réutilisation. Les nouveaux dépôts utilisent `fichiers_citoyens`.
+Depuis `backend`, installer `requirements.txt`, appliquer les migrations Alembic (ou adopter une base existante après sauvegarde), puis démarrer `uvicorn app.main:app`. Voir `MIGRATIONS.md`. Le démarrage contrôle la version du schéma sans créer de tables. La table historique `pieces_jointes` est conservée : ses anciennes lignes ne sont pas migrées automatiquement et nécessitent un rattachement à leurs propriétaires avant réutilisation. Les nouveaux dépôts utilisent `fichiers_citoyens`.
 
 Tests : `python -m pytest tests -q` depuis `backend`. Les tests utilisent une base SQLite et des répertoires temporaires ; ils n'accèdent pas à la base de développement.
 
@@ -32,7 +32,7 @@ La validation porte sur le parcours corrigé, pas sur une certification exhausti
 - Encaissement : un responsable vérifie le paiement réel hors application et enregistre une transaction via POST /api/transactions/ avec citoyen_id, montant, type_paiement, idempotency_key et référence externe de justificatif. La route citoyenne /payer attend la référence **interne TXN** retournée par ce registre. Elle ne confirme jamais une simple référence MVola inventée par le client.
 - Une transaction ne règle qu'une demande, et inversement (contraintes uniques de la nouvelle table paiements_demandes). Même référence et même demande : réponse idempotente. Mauvais montant, mauvais citoyen, transaction déjà utilisée ou absence de rapprochement : refus.
 - Les anciens statuts Payé sans rapprochement ne permettent plus la délivrance : ils doivent être rapprochés avec une transaction vérifiée. Les services gratuits ne demandent pas de paiement.
-- Redémarrer le backend pour créer la table additive paiements_demandes. Pas de modification des colonnes existantes. Les migrations Alembic et tests de concurrence PostgreSQL restent à mettre en place ; les tests actuels utilisent SQLite. Les verrous de lignes SQL ne sont effectifs que sur une base qui les prend en charge.
+- Appliquer les migrations Alembic avant redémarrage. Les migrations sont validées sur SQLite et PostgreSQL 16 ; les tests de concurrence métier restent à mettre en place. Les verrous de lignes SQL ne sont effectifs que sur une base qui les prend en charge.
 
 
 ## Mode démo et configuration de production

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 echo "🌿 CommuneDigit — Démarrage Backend"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
@@ -18,4 +19,5 @@ echo "🚀 Démarrage FastAPI sur http://localhost:8000"
 echo "📖 Documentation : http://localhost:8000/api/docs"
 echo "📊 Frontend      : http://localhost:5173 (npm run dev)"
 echo ""
+python -m app.schema check
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
