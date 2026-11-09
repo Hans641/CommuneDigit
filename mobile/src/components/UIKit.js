@@ -115,6 +115,7 @@ export function Input({ label, value, onChangeText, placeholder, secureTextEntry
       ]}>
         {icon && <View style={{ marginRight: spacing.sm }}>{icon}</View>}
         <TextInput
+          accessibilityLabel={label}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}

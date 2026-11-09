@@ -8,7 +8,7 @@
 // ═══════════════════════════════════════════════════════════════
 import React, { useRef, useEffect } from 'react';
 import {
-  View, StyleSheet, Animated, Platform, StatusBar,
+  View, ActivityIndicator, StyleSheet, Animated, Platform, StatusBar,
 } from 'react-native';
 import { AppProvider, useAuth, useTheme } from './src/context/AppContext';
 import LoginScreen from './src/screens/LoginScreen';
@@ -23,7 +23,7 @@ import BottomNav from './src/navigation/BottomNav';
 
 // ── Wrapper interne (accès aux contextes) ─────────────────────
 function AppInner() {
-  const { user }    = useAuth();
+  const { user,restoring }    = useAuth();
   const { theme }   = useTheme();
   const [activeTab, setActiveTab] = React.useState('accueil');
 
@@ -36,6 +36,7 @@ function AppInner() {
   }, [user]);
 
   // ── Pas connecté → Login ───────────────────────────────────
+  if(restoring) return <View style={{flex:1,justifyContent:'center',backgroundColor:theme.bg}}><ActivityIndicator accessibilityLabel="Restauration de session"/></View>;
   if (!user) {
     return (
       <Animated.View style={[styles.root, { opacity: fadeAnim, backgroundColor: theme.bg }]}>
@@ -74,7 +75,7 @@ function AppInner() {
       <BottomNav
         activeTab={activeTab}
         onTabPress={setActiveTab}
-        badges={{ dossiers: 3, alertes: 2 }}
+        badges={{}}
       />
     </Animated.View>
   );

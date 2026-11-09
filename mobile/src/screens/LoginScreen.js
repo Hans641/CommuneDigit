@@ -27,7 +27,7 @@ const DEMO_USERS = [
 export default function LoginScreen() {
   const { theme, isDark, toggleTheme } = useTheme();
   const { lang, toggleLang, tr } = useLang();
-  const { login } = useAuth();
+  const { login,backendUrl,setBackendUrl,authError } = useAuth();
 
   const [username,  setUsername]  = useState('');
   const [password,  setPassword]  = useState('');
@@ -164,7 +164,8 @@ export default function LoginScreen() {
               {tr('login', 'titre')}
             </Text>
 
-            {error ? <AlertBanner type="error" message={error} /> : null}
+            {error || authError ? <AlertBanner type="error" message={error || authError} /> : null}
+            <Input label="Serveur CommuneDigit (URL terminée par /api)" value={backendUrl} onChangeText={setBackendUrl} placeholder="https://votre-serveur/api"/>
 
             <Input
               label={tr('login', 'identifiant')}

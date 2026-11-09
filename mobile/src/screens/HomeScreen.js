@@ -17,7 +17,7 @@ import {
   TrendingUp, TrendingDown, Clock, CheckCircle2,
   AlertCircle, ChevronRight,
 } from 'lucide-react-native';
-import { useTheme, useAuth, useLang } from '../context/AppContext';
+import { useTheme, useAuth, useLang, useSync } from '../context/AppContext';
 import { Card, StatCard, SectionHeader, StatusBadge, Avatar } from '../components/UIKit';
 import { typography, spacing, radius, shadows } from '../theme';
 import { dashboardAPI, actesAPI } from '../services/api';
@@ -71,22 +71,17 @@ export default function HomeScreen({ onNavigate }) {
   const slideAnim = useRef(new Animated.Value(20)).current;
 
   // ── Données réelles depuis l'API ──────────────────────────────
+  const offline=useSync();
   const [apiStats,     setApiStats]     = useState(null);
-  const [recentActes,  setRecentActes]  = useState([]);
-  const [loadingStats, setLoadingStats] = useState(true);
-
   const loadData = async () => {
-    setLoadingStats(true);
-    try {
-      const [stats, actes] = await Promise.allSettled([
-        dashboardAPI.stats(),
-        actesAPI.list({ limit: 4 }),
-      ]);
-      if (stats.status === 'fulfilled')  setApiStats(stats.value);
-      if (actes.status === 'fulfilled')  setRecentActes(actes.value);
-    } catch {}
-    setLoadingStats(false);
+    try {setApiStats(await dashboardAPI.stats());} catch {}
   };
+  const ACTIVITY=offline.actes.slice(-4).reverse().map(row=>({
+    id:row.id,icon:row.type_acte==='Naissance'?Baby:FileText,color:'#10b981',
+    fr:`${row.type_acte} — ${row.nom_concerne}`,mg:`${row.type_acte} — ${row.nom_concerne}`,
+    time:row._timestamp ? new Date(row._timestamp).toLocaleString('fr-FR') : 'Enregistré localement',
+    status:row.is_validated?'valide':row._pending?'en_cours':'en_attente',
+  }));
 
   useEffect(() => {
     Animated.parallel([
@@ -161,7 +156,7 @@ export default function HomeScreen({ onNavigate }) {
               <View style={[styles.syncBadge, { backgroundColor: theme.successBg, borderColor: theme.success + '40' }]}>
                 <RefreshCw size={11} color={theme.success} />
                 <Text style={[typography.overline, { color: theme.success, marginLeft: 4 }]}>
-                  {tr('common', 'synchro')}
+                  {offline.busy?'Synchronisation…':!offline.online?'Hors connexion':offline.pending || offline.issues.length?'À synchroniser':'Données reçues'}
                 </Text>
               </View>
 
@@ -260,7 +255,7 @@ export default function HomeScreen({ onNavigate }) {
                         {lang === 'mg' ? item.mg : item.fr}
                       </Text>
                       <Text style={[typography.caption, { color: theme.textMuted, marginTop: 2 }]}>
-                        {lang === 'mg' ? `${item.time} lasa` : `il y a ${item.time}`}
+                        {item.time}
                       </Text>
                     </View>
                     <StatusBadge status={item.status} label={statusLabels[item.status]} />

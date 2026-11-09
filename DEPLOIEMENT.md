@@ -107,11 +107,11 @@ server {
 cd mobile
 npm install
 
-# Android
-npx react-native run-android --variant=release
+# Android — SDK et appareil/émulateur requis
+npm run android
 
-# iOS
-npx react-native run-ios --configuration Release
+# iOS — macOS/Xcode et CocoaPods requis
+npm run ios
 ```
 
 **Changer l'URL backend dans mobile :**
@@ -187,4 +187,4 @@ La migration `0004` ajoute les jetons à usage unique et les limites de demandes
 
 ## Journal de synchronisation
 
-La migration `0005` ajoute les versions serveur, reçus et journal de changements. Arrêter tous les processus d’écriture avant application, puis redémarrer les workers pour activer le suivi ORM. Voir [OFFLINE_SYNC.md](backend/OFFLINE_SYNC.md). Les écritures SQL externes/en masse ne doivent pas contourner ce suivi. Le raccordement des files locales mobiles reste une étape distincte.
+La migration `0005` ajoute les versions serveur, reçus et journal de changements. Arrêter tous les processus d’écriture avant application, puis redémarrer les workers pour activer le suivi ORM. Voir [OFFLINE_SYNC.md](backend/OFFLINE_SYNC.md). Les écritures SQL externes/en masse ne doivent pas contourner ce suivi. Le raccordement du cache et de la file mobile est décrit dans [mobile/README.md](mobile/README.md) ; la validation sur appareil reste à effectuer.
