@@ -119,5 +119,8 @@ def create_admin():
         db.close()
 
 if __name__ == "__main__":
+    from app.core.config import get_settings
+    if not get_settings().seed_demo_accounts:
+        raise SystemExit("Initialisation démo désactivée ; créez un administrateur via la commande de production")
     create_tables()
     create_admin()

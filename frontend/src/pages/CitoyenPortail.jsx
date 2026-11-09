@@ -703,6 +703,19 @@ function OngletServices({ mesDemandes, onDemandeSuccess }) {
 // ══════════════════════════════════════════════════════════════════
 function OngletMesDemandes({ demandes, loading, onRefresh, error }) {
   const [selected, setSelected] = useState(null);
+  const [demoPayment, setDemoPayment] = useState(false);
+  const [paying, setPaying] = useState(null);
+  useEffect(() => {
+    citoyenEspaceAPI.paiementConfig().then(c => setDemoPayment(c.demo_enabled)).catch(() => {});
+  }, []);
+  const simulatePayment = async (id) => {
+    setPaying(id);
+    try {
+      await citoyenEspaceAPI.payer(id, { reference_paiement: 'DEMO' });
+      onRefresh();
+    } catch (e) { window.alert(e.message || 'Simulation impossible'); }
+    finally { setPaying(null); }
+  };
 
   if (loading) return <div style={{ textAlign: 'center', padding: 60, color: C.textMuted }}>Chargement des demandes…</div>;
   if (error) return (
@@ -763,6 +776,14 @@ function OngletMesDemandes({ demandes, loading, onRefresh, error }) {
                   <div style={{ background: 'rgba(16,185,129,0.08)', border: `1px solid rgba(16,185,129,0.2)`, borderRadius: 10, padding: '12px 14px' }}>
                     <div style={{ fontSize: '0.72rem', color: C.emerald, fontWeight: 700, marginBottom: 6 }}>MESSAGE DE L'AGENT</div>
                     <div style={{ fontSize: '0.85rem', color: C.text }}>{d.note_agent}</div>
+                  </div>
+                )}
+                {demoPayment && d.montant_ar > 0 && d.statut_paiement !== 'Payé' && d.statut !== 'Rejetée' && (
+                  <div style={{ marginBottom: 12 }}>
+                    <p>Mode démo : aucun débit réel.</p>
+                    <Btn disabled={paying === d.id} onClick={() => simulatePayment(d.id)}>
+                      {paying === d.id ? 'Simulation…' : 'Simuler le paiement'}
+                    </Btn>
                   </div>
                 )}
                 {d.document_final && (

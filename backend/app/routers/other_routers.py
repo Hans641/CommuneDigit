@@ -57,6 +57,8 @@ def create_transaction(
     body: TransactionCreate, request: Request,
     db: Session = Depends(get_db), current: Agent = Depends(require_role(*APPROVERS)),
 ):
+    if body.type_paiement == "Démo" or body.idempotency_key.startswith("demo:"):
+        raise HTTPException(422, "Utilisez le parcours de simulation dédié")
     def same_transaction(txn):
         return (txn.citoyen_id == body.citoyen_id and txn.montant == body.montant
                 and txn.type_paiement == body.type_paiement
@@ -98,7 +100,7 @@ def create_transaction(
 @router_txn.get("/stats/total")
 def total_taxes(db: Session = Depends(get_db), _: Agent = Depends(get_current_agent)):
     total = db.query(func.sum(Transaction.montant)).filter(
-        Transaction.statut == "Confirmé"
+        Transaction.statut == "Confirmé", Transaction.type_paiement != "Démo"
     ).scalar() or 0
     return {"total_ariary": total}
 
@@ -374,7 +376,7 @@ def dashboard_stats(
             ActeEtatCivil.statut == "En attente"
         ).count(),
         taxes_collectees=db.query(func.sum(Transaction.montant)).filter(
-            Transaction.statut == "Confirmé"
+            Transaction.statut == "Confirmé", Transaction.type_paiement != "Démo"
         ).scalar() or 0,
         agents_actifs=db.query(Agent).filter(Agent.is_active == True).count(),
         fokontany_connectes=db.query(Fokontany).filter(Fokontany.is_online == True).count(),

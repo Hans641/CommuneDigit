@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import Base, engine, get_settings
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.models.models import Agent, Fokontany, CatalogueService, ProjetCommune
 from app.routers.auth import router as auth_router
 from app.routers.actes import router as actes_router
@@ -190,7 +190,7 @@ def seed_db():
             db.flush()
 
         # Agents (sans comptes citoyens de démo)
-        if db.query(Agent).count() == 0:
+        if settings.seed_demo_accounts and db.query(Agent).count() == 0:
             agents = [
                 Agent(matricule="AGT-0001", nom="RANOHARISON", prenom="Hans", role="Administrateur",
                       fokontany="Tous", email="admin@communedigit.mg", telephone="034 00 000 00",
@@ -212,13 +212,13 @@ def seed_db():
             db.flush()
 
         # Projets
-        if db.query(ProjetCommune).count() == 0:
+        if settings.seed_demo_accounts and db.query(ProjetCommune).count() == 0:
             for p in PROJETS_INITIAUX:
                 db.add(ProjetCommune(**p))
             db.flush()
 
         db.commit()
-        print("✅ Base initialisée — aucun citoyen de démo, agents réels uniquement")
+        print("✅ Données initiales disponibles")
     except Exception as e:
         db.rollback()
         print(f"⚠️  Seed : {e}")
@@ -229,6 +229,13 @@ def seed_db():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    if settings.app_env == "production":
+        from app.core.config import SessionLocal
+        with SessionLocal() as db:
+            defaults = {"AGT-0001": "admin123", "AGT-0002": "agent123", "AGT-0003": "mid2024"}
+            for agent in db.query(Agent).filter(Agent.is_active == True, Agent.matricule.in_(defaults)).all():
+                if verify_password(defaults[agent.matricule], agent.hashed_password):
+                    raise RuntimeError("Production : désactivez les comptes de démonstration ou changez leurs mots de passe")
     seed_db()
     print(f"🚀 {settings.app_name} — http://localhost:8081/api/docs")
     yield
