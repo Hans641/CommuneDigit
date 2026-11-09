@@ -41,3 +41,7 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/communedigit_db
 ## Schéma versionné
 
 Avant le premier démarrage, appliquer `alembic upgrade head` depuis `backend`. Pour une base existante non versionnée : sauvegarder, puis `python -m app.schema adopt`. Voir [MIGRATIONS.md](MIGRATIONS.md). Le serveur et les commandes de création de compte ne modifient plus le schéma automatiquement.
+
+## Synchronisation
+
+`POST /api/sync/` applique réellement les créations et modifications autorisées. `GET /api/sync/citoyen` et `/api/sync/acte` proposent un journal paginé avec curseurs serveur. Voir [OFFLINE_SYNC.md](OFFLINE_SYNC.md) pour les checksums, conflits, reçus et retraits de cache. Le stockage local et la file mobile restent à intégrer.

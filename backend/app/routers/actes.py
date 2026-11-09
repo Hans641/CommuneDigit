@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_db
 from app.core.deps import get_current_agent, get_client_ip, require_role
-from app.core.security import hash_record
+from app.core.security import acte_integrity_hash
+from app.services.sync_service import utc
 from app.models.models import ActeEtatCivil, Agent
 from app.schemas.schemas import ActeCreate, ActeOut, ActeUpdate
 from app.services.request_policy import OPERATORS, APPROVERS
@@ -49,29 +50,19 @@ def create_acte(
     # Générer référence unique
     reference = gen_reference("EC")
 
-    # Calculer le hash SHA-256 pour intégrité
-    record_data = {
-        "reference": reference,
-        "type_acte": body.type_acte,
-        "nom_concerne": body.nom_concerne,
-        "date_evenement": body.date_evenement.isoformat(),
-        "fokontany_id": str(body.fokontany_id or ""),
-    }
-    sha = hash_record(record_data)
-
     acte = ActeEtatCivil(
         reference=reference,
         type_acte=body.type_acte,
         nom_concerne=body.nom_concerne,
-        date_evenement=body.date_evenement,
+        date_evenement=utc(body.date_evenement),
         lieu_evenement=body.lieu_evenement,
         details_json=body.details_json,
         citoyen_id=body.citoyen_id,
         fokontany_id=body.fokontany_id,
         agent_id=current.id,
         statut="En attente",
-        hash_sha256=sha,
     )
+    acte.hash_sha256 = acte_integrity_hash(acte)
     db.add(acte)
     db.commit()
     db.refresh(acte)
@@ -110,15 +101,9 @@ def update_acte(
     for field, val in updates.items():
         setattr(acte, field, val)
 
-    # Recalculer hash si données modifiées
-    if any(k in updates for k in ["nom_concerne", "date_evenement", "type_acte"]):
-        record_data = {
-            "reference": acte.reference,
-            "type_acte": acte.type_acte,
-            "nom_concerne": acte.nom_concerne,
-            "date_evenement": acte.date_evenement.isoformat(),
-        }
-        acte.hash_sha256 = hash_record(record_data)
+    if 'date_evenement' in updates:
+        acte.date_evenement = utc(acte.date_evenement)
+    acte.hash_sha256 = acte_integrity_hash(acte)
 
     acte.updated_at = datetime.utcnow()
     acte.last_update = datetime.utcnow()
@@ -146,6 +131,7 @@ def valider_acte(
 
     acte.statut = "Validé"
     acte.is_validated = True
+    acte.last_update = datetime.utcnow()
     acte.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(acte)

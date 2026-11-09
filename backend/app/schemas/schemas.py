@@ -288,17 +288,19 @@ class DashboardStats(BaseModel):
 #  SYNC (offline-first)
 # ════════════════════════════════════════
 class SyncRecord(BaseModel):
-    entity_type: str          # "acte", "citoyen", "transaction"
-    entity_id:   str
+    entity_type: str = Field(..., min_length=1, max_length=30)
+    entity_id:   str = Field(..., min_length=1, max_length=36)
     data:        dict
-    timestamp:   str          # ISO8601
-    hash:        str          # SHA-256 pour intégrité
-    client_id:   str          # ID appareil mobile
+    timestamp:   str = Field(..., min_length=1, max_length=64)
+    hash:        str = Field(..., min_length=1, max_length=64)
+    hash_format: str = Field("legacy-v1", max_length=20)
+    client_id:   str = Field(..., pattern=r"^[A-Za-z0-9_-]{1,100}$")
 
 class SyncRequest(BaseModel):
-    records: List[SyncRecord]
+    records: List[SyncRecord] = Field(..., max_length=200)
 
 class SyncResponse(BaseModel):
     accepted: List[str]       # IDs acceptés
     conflicts: List[str]      # IDs en conflit (LWW résolu)
     errors: List[str]         # IDs rejetés
+    results: List[dict] = Field(default_factory=list)

@@ -30,7 +30,7 @@ python -m app.schema check
 
 4. Redémarrer l'API et vérifier `/api/health`, une connexion et la lecture d'un dossier existant.
 
-L'adoption reconnaît trois états : tables historiques (`0001`), ajout de `fichiers_citoyens` (`0002`), puis ajout de `paiements_demandes` (`0003`). Elle contrôle colonnes, types, nullabilité, index, contraintes uniques, clés étrangères, clés primaires et valeurs des enums natifs PostgreSQL avant d'attribuer une version. Elle applique ensuite uniquement les migrations manquantes, dont `0004` pour les jetons de récupération et leurs limites.
+L'adoption reconnaît trois états : tables historiques (`0001`), ajout de `fichiers_citoyens` (`0002`), puis ajout de `paiements_demandes` (`0003`). Elle contrôle colonnes, types, nullabilité, index, contraintes uniques, clés étrangères, clés primaires et valeurs des enums natifs PostgreSQL avant d'attribuer une version. Elle reconnaît aussi le schéma `0004` avec les tables de récupération. Elle applique ensuite les migrations manquantes, dont `0005` pour le journal transactionnel de synchronisation.
 
 Une table inconnue, un schéma incomplet ou une divergence détectée provoquent un refus sans attribution de version. Examiner l'écart et préparer une migration de reprise adaptée ; ne pas contourner ce contrôle avec `alembic stamp head`. Une base déjà versionnée utilise `alembic upgrade head`, pas `adopt`. L'adoption concerne les instantanés historiques reconnus, pas les futures mises à jour des modèles.
 
@@ -55,7 +55,7 @@ Ne pas modifier les révisions déjà publiées. Relire particulièrement les mi
 
 ## Retours arrière
 
-`alembic downgrade -1` exécute le retour arrière de la dernière révision. Les quatre migrations actuelles créent des tables : leurs downgrades suppriment ces tables et leurs données. Un rollback applicatif ne doit pas déclencher cette commande automatiquement ; restaurer la sauvegarde lorsque la conservation des données est nécessaire.
+`alembic downgrade -1` exécute le retour arrière de la dernière révision. Les migrations créent des tables et certaines ajoutent des colonnes : leurs downgrades suppriment les éléments correspondants et leurs données. Le retour de `0005` à `0004` conserve les tables métier, mais supprime reçus, journal et marqueurs de synchronisation ; il impose une reprise complète des clients après réapplication et SQLite >=3.35 ou PostgreSQL. Un rollback applicatif ne doit pas déclencher cette commande automatiquement ; restaurer la sauvegarde lorsque la conservation des données est nécessaire.
 
 ## Tests
 

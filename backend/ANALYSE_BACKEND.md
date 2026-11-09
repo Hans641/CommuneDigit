@@ -38,3 +38,8 @@ La validation porte sur le parcours corrigé, pas sur une certification exhausti
 ## Mode démo et configuration de production
 
 Voir `DEPLOIEMENT.md` et `.env.example`. `PAYMENT_DEMO_ENABLED=true` active les simulations en développement ; le marqueur API `demo` et le type de transaction Démo identifient ces paiements. Les agrégats financiers les excluent. Production : `APP_ENV=production`, clé JWT privée de 32 caractères minimum, `DEBUG=false`, `SEED_DEMO_ACCOUNTS=false`, `PAYMENT_DEMO_ENABLED=false`. Le démarrage refuse les comptes de démonstration actifs utilisant encore leurs mots de passe par défaut. `manage_admin.py` permet de créer un administrateur sans mot de passe partagé ni secret en argument de commande.
+
+
+## Synchronisation hors connexion
+
+Le backend dispose d’un push validé avec reçus durables et d’un pull paginé par journal transactionnel. Les droits fokontany, conflits de dates et écritures concurrentes sont contrôlés. La migration `0005` inscrit également les modifications en ligne et les transferts de périmètre. Voir `OFFLINE_SYNC.md`. Les intégrations de stockage local/file de renvoi dans les clients, la rétention du journal, les tests de charge et l’alignement territorial complet des anciens CRUD restent à traiter.
