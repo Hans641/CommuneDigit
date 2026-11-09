@@ -13,7 +13,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
 
-from app.core.config import get_db
+from app.core.config import get_db, get_settings
 from app.core.security import create_access_token, verify_password, hash_password, decode_token
 from app.models.models import (
     CompteCitoyen, Citoyen, Fokontany,
@@ -431,18 +431,42 @@ def payer_demande(
         raise HTTPException(409, "Une demande rejetée ne peut pas être payée")
     if d.montant_ar <= 0:
         raise HTTPException(409, "Cette demande est gratuite")
+    demo = body.reference_paiement == "DEMO"
+    if demo:
+        if not get_settings().payment_demo_enabled:
+            raise HTTPException(403, "Paiement démo désactivé")
+        txn = db.query(Transaction).filter(Transaction.idempotency_key == f"demo:{d.id}").first()
+        if not txn:
+            from app.services.ref_service import gen_reference
+            txn = Transaction(
+                reference=gen_reference("TXN"), citoyen_id=compte.citoyen_id,
+                type_paiement="Démo", montant=d.montant_ar, statut="Confirmé",
+                idempotency_key=f"demo:{d.id}", reference_externe=f"DEMO:{d.id}",
+            )
+            db.add(txn)
+            try:
+                db.flush()
+            except IntegrityError:
+                db.rollback()
+                raise HTTPException(409, "Simulation concurrente : rechargez la demande puis réessayez")
+        payment_reference = txn.reference
+    else:
+        payment_reference = body.reference_paiement
     txn = db.query(Transaction).filter(
-        Transaction.reference == body.reference_paiement,
+        Transaction.reference == payment_reference,
         Transaction.citoyen_id == compte.citoyen_id,
         Transaction.statut == "Confirmé",
     ).with_for_update().first()
     if not txn or Decimal(str(txn.montant)) != Decimal(str(d.montant_ar)):
         raise HTTPException(409, "Aucun encaissement confirmé correspondant au citoyen et au montant")
+    demo = txn.type_paiement == "Démo"
+    if demo and not get_settings().payment_demo_enabled:
+        raise HTTPException(403, "Paiement démo désactivé")
     existing = db.query(PaiementDemande).filter(PaiementDemande.demande_id == d.id).first()
     if existing:
         if existing.transaction_id != txn.id:
             raise HTTPException(409, "Demande déjà réglée avec une autre transaction")
-        return {"message": "Paiement déjà rapproché", "reference": d.reference}
+        return {"message": "Paiement déjà rapproché", "reference": d.reference, "demo": txn.type_paiement == "Démo"}
     if db.get(PaiementDemande, txn.id):
         raise HTTPException(409, "Transaction déjà affectée à une demande")
     try:
@@ -450,7 +474,7 @@ def payer_demande(
         d.statut_paiement = "Payé"
         d.reference_paiement = txn.reference
         db.add(EvenementDemande(demande_id=d.id, type_event="PAIEMENT",
-                               description=f"Encaissement rapproché : {txn.reference}"))
+                               description=f"{'Simulation démo' if demo else 'Encaissement rapproché'} : {txn.reference}"))
         NotificationService.create_notification(
             db, compte, "PAIEMENT", demande=d, montant=d.montant_ar,
             via_email=False, via_sms=False, commit=False,
@@ -459,7 +483,7 @@ def payer_demande(
     except IntegrityError:
         db.rollback()
         raise HTTPException(409, "Transaction ou demande déjà rapprochée, rechargez le dossier")
-    return {"message": "Paiement vérifié dans le registre des encaissements", "reference": d.reference}
+    return {"message": "Paiement simulé — aucun débit réel" if demo else "Paiement vérifié dans le registre des encaissements", "reference": d.reference, "demo": demo}
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -861,3 +885,8 @@ def historique_demande(
     return db.query(EvenementDemande).filter(
         EvenementDemande.demande_id == demande_id,
     ).order_by(EvenementDemande.timestamp, EvenementDemande.id).all()
+
+
+@router.get("/paiement/config", summary="Mode de paiement disponible")
+def paiement_config():
+    return {"demo_enabled": get_settings().payment_demo_enabled}

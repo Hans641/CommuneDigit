@@ -16,12 +16,19 @@ python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
 # Configurer la base de données
-cp .env.production .env
-nano .env   # → remplir DATABASE_URL, SECRET_KEY, AT_API_KEY
+# Créer un nouveau .env sans écraser une configuration existante.
+# APP_ENV=production
+# DEBUG=false
+# SEED_DEMO_ACCOUNTS=false
+# PAYMENT_DEMO_ENABLED=false
+# Renseigner DATABASE_URL, ALLOWED_ORIGINS et une SECRET_KEY privée aléatoire.
+# Génération locale de la clé : openssl rand -hex 32
 
 # Créer la DB et les tables
 psql -U postgres -c "CREATE DATABASE commune_db;"
-python3 -m alembic upgrade head   # ou : python3 -c "from app.main import app; from app.models import Base, engine; Base.metadata.create_all(engine)"
+# Aucune migration Alembic versionnée n'est encore fournie.
+# Créer un administrateur ; le mot de passe sera demandé sans affichage.
+python manage_admin.py --matricule ADMIN-0001 --email admin@example.mg --nom Admin --prenom Commune
 
 # Lancer en production
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
@@ -131,7 +138,7 @@ const BASE_URL = 'https://api.commune.example.mg/api';
 
 ## 5. Comptes agents par défaut
 
-Après le premier démarrage, ces comptes sont créés automatiquement :
+En développement avec `SEED_DEMO_ACCOUNTS=true`, ces comptes sont créés sur une base sans agents :
 
 | Matricule | Mot de passe | Rôle |
 |---|---|---|
@@ -139,7 +146,7 @@ Après le premier démarrage, ces comptes sont créés automatiquement :
 | `AGT-0002` | `agent123` | Agent Fokontany |
 | `AGT-0003` | `mid2024` | Ministère MID |
 
-⚠️ **Changer ces mots de passe immédiatement en production.**
+En production, les comptes de démonstration ne sont pas créés. Le démarrage refuse une base contenant ces comptes actifs avec leur mot de passe par défaut ; changer leurs mots de passe ou les désactiver avant déploiement. Ne pas réutiliser une base de démonstration comme base réelle.
 
 ---
 
@@ -153,3 +160,12 @@ Après le premier démarrage, ces comptes sont créés automatiquement :
 - [ ] Backup automatique PostgreSQL configuré
 - [ ] Africa's Talking configuré et testé (SMS)
 - [ ] URL backend dans `mobile/src/services/api.js` → production
+
+
+## Paiements en démonstration
+
+En développement uniquement, activer `PAYMENT_DEMO_ENABLED=true` dans `backend/.env`, puis redémarrer l'API. Le portail propose « Simuler le paiement » dans le détail d'une demande payante. Aucun appel opérateur ni débit réel. La transaction et la réponse API sont marquées Démo ; les montants simulés sont exclus des recettes du tableau de bord et du total des taxes.
+
+En API : `POST /api/espace-citoyen/demandes/{id}/payer` avec `{"reference_paiement":"DEMO"}` et le jeton du citoyen propriétaire. Répéter la requête ne crée pas de nouvel encaissement. Hors mode démo, cette commande est refusée et les simulations précédentes ne permettent pas de délivrance. Le rapprochement manuel avec une transaction réelle reste disponible.
+
+`APP_ENV=production` refuse le debug, les paiements démo, les comptes démo automatiques et une clé JWT par défaut ou de moins de 32 caractères. Les comptes créés avec `manage_admin.py` n'ont pas de mot de passe prédéfini. La publication de ces paramètres ne constitue pas un déploiement de production validé.

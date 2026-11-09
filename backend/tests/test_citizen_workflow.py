@@ -193,3 +193,97 @@ def test_supervisor_rejection_and_notification_rollback(monkeypatch):
         assert c.patch(path, headers=supervisor, json={'statut': 'En traitement'}).status_code == 409
         assert c.post(detail + '/payer', headers=h, json={'reference_paiement': 'fake'}).status_code == 409
         assert c.post('/api/agents/', headers=supervisor, json={}).status_code == 403
+
+
+def test_demo_payment_is_explicit_and_idempotent(monkeypatch):
+    from app.core.config import get_settings
+    from app.models.models import CompteCitoyen, Transaction
+    settings = get_settings()
+    with TestClient(app) as c:
+        h = register(c, 'demo-payer@example.com')
+        with SessionLocal() as db:
+            db.add(CatalogueService(code='DEMO_TEST', nom='Démo', categorie='Certificat',
+                                    prix_ar=2000, documents_requis=[]))
+            db.commit()
+        assert c.post('/api/espace-citoyen/demandes', headers=h, json={'service_code': 'DEMO_TEST'}).status_code == 201
+        did = c.get('/api/espace-citoyen/demandes', headers=h).json()[0]['id']
+        path = '/api/espace-citoyen/demandes/' + did
+        monkeypatch.setattr(settings, 'payment_demo_enabled', False)
+        assert c.post(path + '/payer', headers=h, json={'reference_paiement': 'DEMO'}).status_code == 403
+        monkeypatch.setattr(settings, 'payment_demo_enabled', True)
+        assert c.get('/api/espace-citoyen/paiement/config').json()['demo_enabled'] is True
+        for _ in range(2):
+            r = c.post(path + '/payer', headers=h, json={'reference_paiement': 'DEMO'})
+            assert r.status_code == 200, r.text
+            assert r.json()['demo'] is True
+        with SessionLocal() as db:
+            assert db.query(Transaction).filter_by(idempotency_key=f'demo:{did}').count() == 1
+        token = c.post('/api/auth/login', json={'username': 'AGT-0001', 'password': 'admin123'}).json()['access_token']
+        admin = {'Authorization': 'Bearer ' + token}
+        for state in ['En traitement', 'Approuvée', 'Prête']:
+            r = c.patch('/api/demandes-citoyens/' + did, headers=admin, json={'statut': state})
+            assert r.status_code == 200, r.text
+        assert c.get(path + '/document', headers=h).status_code == 200
+        with SessionLocal() as db:
+            from sqlalchemy import func
+            expected = db.query(func.sum(Transaction.montant)).filter(Transaction.statut == 'Confirmé', Transaction.type_paiement != 'Démo').scalar() or 0
+        assert c.get('/api/transactions/stats/total', headers=admin).json()['total_ariary'] == expected
+        assert c.get('/api/dashboard/stats', headers=admin).json()['taxes_collectees'] == expected
+        monkeypatch.setattr(settings, 'payment_demo_enabled', False)
+        assert c.get(path + '/document', headers=h).status_code == 409
+
+
+def test_production_config_and_existing_demo_accounts(monkeypatch):
+    import pytest
+    from pydantic import ValidationError
+    from app.core.config import Settings, get_settings
+    safe = dict(app_env='production', secret_key='x' * 64, debug=False,
+                payment_demo_enabled=False, seed_demo_accounts=False, _env_file=None)
+    assert Settings(**safe).app_env == 'production'
+    for changes in [dict(secret_key='short'), dict(secret_key='dev-secret-key-changez-en-prod'),
+                    dict(debug=True), dict(payment_demo_enabled=True), dict(seed_demo_accounts=True)]:
+        with pytest.raises(ValidationError):
+            Settings(**{**safe, **changes})
+    monkeypatch.setattr(get_settings(), 'app_env', 'production')
+    monkeypatch.setattr(get_settings(), 'seed_demo_accounts', False)
+    with pytest.raises(RuntimeError, match='comptes de démonstration'):
+        with TestClient(app):
+            pass
+
+
+
+def test_production_boot_does_not_seed_demo(monkeypatch, tmp_path):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    import app.core.config as config
+    import importlib
+    main = importlib.import_module('app.main')
+    from app.models.models import Agent, ProjetCommune
+    engine = create_engine('sqlite:///' + str(tmp_path / 'production.db'), connect_args={'check_same_thread': False})
+    sessions = sessionmaker(bind=engine)
+    monkeypatch.setattr(main, 'engine', engine)
+    monkeypatch.setattr(config, 'SessionLocal', sessions)
+    monkeypatch.setattr(config.get_settings(), 'app_env', 'production')
+    monkeypatch.setattr(config.get_settings(), 'seed_demo_accounts', False)
+    with TestClient(app):
+        with sessions() as db:
+            assert db.query(Agent).count() == 0
+            assert db.query(ProjetCommune).count() == 0
+    engine.dispose()
+
+
+def test_private_admin_bootstrap(monkeypatch):
+    import manage_admin
+    from app.models.models import Agent
+    from app.core.security import verify_password
+    monkeypatch.setattr('sys.argv', ['manage_admin.py', '--matricule', 'BOOTSTRAP-TEST',
+                                   '--email', 'bootstrap@example.com', '--nom', 'Admin', '--prenom', 'Test'])
+    monkeypatch.setattr(manage_admin, 'getpass', lambda prompt: 'private-test-password')
+    manage_admin.main()
+    with SessionLocal() as db:
+        agent = db.query(Agent).filter_by(matricule='BOOTSTRAP-TEST').one()
+        assert agent.role == 'Administrateur'
+        assert verify_password('private-test-password', agent.hashed_password)
+    import pytest
+    with pytest.raises(SystemExit, match='Matricule déjà utilisé'):
+        manage_admin.main()

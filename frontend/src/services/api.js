@@ -172,6 +172,7 @@ export const citoyenAuthAPI = {
 };
 
 export const citoyenEspaceAPI = {
+  paiementConfig: () => citoyenReq('GET', '/paiement/config'),
   projets:    (params = {}) => citoyenReq('GET', '/projets'),
   alertes:    ()             => citoyenReq('GET', '/alertes'),
   fokontany:  ()             => citoyenReq('GET', '/fokontany'),

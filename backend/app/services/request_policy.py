@@ -1,5 +1,6 @@
 """Shared permissions and lifecycle rules for citizen requests."""
 from fastapi import HTTPException
+from app.core.config import get_settings
 from app.models.models import DemandeService, Citoyen, Fokontany, PaiementDemande, Transaction
 from sqlalchemy.orm import object_session
 from decimal import Decimal
@@ -35,6 +36,8 @@ def require_paid(demande):
         PaiementDemande, PaiementDemande.transaction_id == Transaction.id,
     ).filter(PaiementDemande.demande_id == demande.id,
              Transaction.statut == "Confirmé", Transaction.citoyen_id == demande.citoyen_id).first()
+    if payment and payment.type_paiement == "Démo" and not get_settings().payment_demo_enabled:
+        raise HTTPException(409, "Un paiement simulé ne permet pas une délivrance hors mode démo")
     if (demande.statut_paiement != "Payé" or not payment
             or Decimal(str(payment.montant)) != Decimal(str(demande.montant_ar))):
         raise HTTPException(409, "Paiement vérifié requis avant délivrance")

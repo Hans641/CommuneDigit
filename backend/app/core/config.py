@@ -5,6 +5,8 @@ Gère les variables d'environnement et la connexion DB
 import os
 from functools import lru_cache
 from pydantic_settings import BaseSettings
+from pydantic import model_validator
+from typing import Literal
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -12,6 +14,10 @@ from sqlalchemy.orm import sessionmaker
 
 
 class Settings(BaseSettings):
+    app_env: Literal["development", "test", "production"] = "development"
+    payment_demo_enabled: bool = False
+    seed_demo_accounts: bool = True
+
     app_name: str = "CommuneDigit"
     app_version: str = "1.0.2"
     debug: bool = False  # Surcharger avec DEBUG=true en développement
@@ -36,7 +42,17 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
+    @model_validator(mode="after")
+    def validate_production(self):
+        if self.app_env == "production":
+            if len(self.secret_key) < 32 or self.secret_key == "dev-secret-key-changez-en-prod":
+                raise ValueError("Production : SECRET_KEY unique d'au moins 32 caractères requise")
+            if self.debug or self.payment_demo_enabled or self.seed_demo_accounts:
+                raise ValueError("Production : DEBUG, PAYMENT_DEMO_ENABLED et SEED_DEMO_ACCOUNTS doivent être false")
+        return self
+
     class Config:
+        hide_input_in_errors = True
         env_file = ".env"
         env_file_encoding = "utf-8"
 

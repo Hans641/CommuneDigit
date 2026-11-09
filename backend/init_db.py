@@ -1,34 +1,9 @@
-# backend/init_db.py
-from app.database import SessionLocal
-from app import models
-from passlib.context import CryptContext
-import sys
+"""Compatibility entry point for the private administrator bootstrap CLI.
 
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+Usage: python init_db.py --matricule ADMIN-0001 --email admin@example.mg --nom Admin --prenom Commune
+"""
+from manage_admin import main
 
-def init_admin():
-    db = SessionLocal()
-    try:
-        print("Vérification de la base de données...")
-        admin_exists = db.query(models.User).filter(models.User.username == "admin").first()
-        
-        if not admin_exists:
-            print("Création du compte admin en cours...")
-            hashed_password = pwd_context.hash("fokontany2026")
-            new_admin = models.User(
-                username="admin",
-                hashed_password=hashed_password
-            )
-            db.add(new_admin)
-            db.commit()
-            print("✅ Compte administrateur créé avec succès !")
-        else:
-            print("ℹ️ Le compte admin existe déjà.")
-    except Exception as e:
-        print(f"❌ Erreur lors de l'initialisation : {e}")
-        db.rollback()
-    finally:
-        db.close()
 
-if __name__ == "__main__":
-    init_admin()
+if __name__ == '__main__':
+    main()

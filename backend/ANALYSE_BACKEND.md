@@ -33,3 +33,8 @@ La validation porte sur le parcours corrigé, pas sur une certification exhausti
 - Une transaction ne règle qu'une demande, et inversement (contraintes uniques de la nouvelle table paiements_demandes). Même référence et même demande : réponse idempotente. Mauvais montant, mauvais citoyen, transaction déjà utilisée ou absence de rapprochement : refus.
 - Les anciens statuts Payé sans rapprochement ne permettent plus la délivrance : ils doivent être rapprochés avec une transaction vérifiée. Les services gratuits ne demandent pas de paiement.
 - Redémarrer le backend pour créer la table additive paiements_demandes. Pas de modification des colonnes existantes. Les migrations Alembic et tests de concurrence PostgreSQL restent à mettre en place ; les tests actuels utilisent SQLite. Les verrous de lignes SQL ne sont effectifs que sur une base qui les prend en charge.
+
+
+## Mode démo et configuration de production
+
+Voir `DEPLOIEMENT.md` et `.env.example`. `PAYMENT_DEMO_ENABLED=true` active les simulations en développement ; le marqueur API `demo` et le type de transaction Démo identifient ces paiements. Les agrégats financiers les excluent. Production : `APP_ENV=production`, clé JWT privée de 32 caractères minimum, `DEBUG=false`, `SEED_DEMO_ACCOUNTS=false`, `PAYMENT_DEMO_ENABLED=false`. Le démarrage refuse les comptes de démonstration actifs utilisant encore leurs mots de passe par défaut. `manage_admin.py` permet de créer un administrateur sans mot de passe partagé ni secret en argument de commande.
