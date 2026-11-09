@@ -5,6 +5,7 @@ Peut générer: PDF, HTML, documents signés, etc.
 """
 import os
 import hashlib
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Tuple
@@ -165,7 +166,7 @@ class DocumentGenerationService:
         
         # Nom sécurisé
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        filename = f"{demande.reference}_{timestamp}.html"
+        filename = f"{demande.reference}_{timestamp}_{uuid.uuid4().hex}.html"
         
         # Répertoire par citoyen/demande
         doc_dir = DOCUMENTS_DIR / str(demande.compte_id) / demande.id
@@ -187,6 +188,7 @@ class DocumentGenerationService:
         db: Session,
         demande: DemandeService,
         agent_id: int = None,
+        commit: bool = True,
     ) -> Optional[DocumentFinal]:
         """Crée ou met à jour le document final d'une demande."""
         
@@ -210,7 +212,8 @@ class DocumentGenerationService:
             existing.taille_bytes = len(content)
             existing.date_generation = datetime.utcnow()
             existing.expires_at = datetime.utcnow() + timedelta(days=DOCUMENT_VALIDITY_DAYS)
-            existing.agent_id = agent_id
+            if agent_id is not None:
+                existing.agent_id = agent_id
         else:
             doc = DocumentFinal(
                 demande_id=demande.id,
@@ -225,8 +228,9 @@ class DocumentGenerationService:
             db.add(doc)
         
         demande.document_final = url
-        db.commit()
-        
+        db.flush()
+        if commit:
+            db.commit()
         return existing or doc
 
     @staticmethod

@@ -27,7 +27,6 @@ export default function DemandesCitoyens() {
   const [selected,  setSelected]  = useState(null);
   const [saving,    setSaving]    = useState(false);
   const [note,      setNote]      = useState('');
-  const [docFinal,  setDocFinal]  = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,11 +52,12 @@ export default function DemandesCitoyens() {
       await api.patch(`/demandes-citoyens/${selected.id}`, {
         statut,
         note_agent: note || undefined,
-        document_final: docFinal || undefined,
       });
-      setSelected(null); setNote(''); setDocFinal('');
+      setSelected(null); setNote('');
       load();
-    } catch {}
+    } catch (error) {
+      window.alert(error.response?.data?.detail || "Traitement impossible");
+    }
     setSaving(false);
   };
 
@@ -167,7 +167,7 @@ export default function DemandesCitoyens() {
                     {d.soumise_at ? new Date(d.soumise_at).toLocaleDateString('fr-FR') : '—'}
                   </td>
                   <td>
-                    <button className="btn btn-primary btn-sm" onClick={() => { setSelected(d); setNote(d.note_agent || ''); setDocFinal(d.document_final || ''); }}>
+                    <button className="btn btn-primary btn-sm" onClick={() => { setSelected(d); setNote(d.note_agent || ''); }}>
                       ✏ Traiter
                     </button>
                   </td>
@@ -247,11 +247,7 @@ export default function DemandesCitoyens() {
                 <textarea className="form-textarea" value={note} onChange={e => setNote(e.target.value)}
                   placeholder="Note optionnelle envoyée au citoyen…" style={{ minHeight: 80 }} />
               </div>
-              <div className="form-group">
-                <label className="form-label">URL du document final (si prêt)</label>
-                <input className="form-input" value={docFinal} onChange={e => setDocFinal(e.target.value)}
-                  placeholder="https://… ou laisser vide" />
-              </div>
+
             </div>
 
             {/* Boutons */}

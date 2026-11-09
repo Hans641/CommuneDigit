@@ -59,10 +59,11 @@ def test_citizen_workflow():
         assert c.get(piece_path, headers=h).status_code == 401
         assert c.get(piece_path).status_code == 401
         assert c.get(piece_path[:-1] + '99', headers=ah).status_code == 404
+        assert c.patch('/api/demandes-citoyens/' + demande['id'], headers=ah, json={'statut': 'En traitement'}).status_code == 200
         r = c.patch('/api/demandes-citoyens/' + demande['id'], headers=ah, json={'statut': 'Approuvée'})
         assert r.status_code == 200, r.text
         history = c.get(path + '/historique', headers=h).json()
-        assert [e['type_event'] for e in history] == ['SOUMISSION', 'TRANSITION_STATUT']
+        assert [e['type_event'] for e in history] == ['SOUMISSION', 'TRANSITION_STATUT', 'TRANSITION_STATUT']
         assert c.get(path + '/historique', headers=other).status_code == 404
         r = c.post(path + '/generer-document', headers=h)
         assert r.status_code == 201, r.text
@@ -95,3 +96,100 @@ def test_path_resolution():
                             (DocumentGenerationService.get_document_file, 'documents')]:
         assert service('/' + prefix + '/../../etc/passwd') is None
         assert service('/etc/passwd') is None
+
+
+def test_request_policy_and_payment(monkeypatch):
+    from app.models.models import CompteCitoyen, Fokontany
+    with TestClient(app) as c:
+        def agent(user, pwd):
+            r = c.post('/api/auth/login', json={'username': user, 'password': pwd})
+            assert r.status_code == 200
+            return {'Authorization': 'Bearer ' + r.json()['access_token']}
+        admin = agent('AGT-0001', 'admin123')
+        operator = agent('AGT-0002', 'agent123')
+        mid = agent('AGT-0003', 'mid2024')
+        h = register(c, 'payer@example.com')
+        other = register(c, 'outside@example.com')
+        with SessionLocal() as db:
+            db.add(CatalogueService(code='PAID', nom='Payant', categorie='Certificat', prix_ar=2000, documents_requis=[]))
+            account = db.query(CompteCitoyen).filter_by(email='payer@example.com').one()
+            citizen_id = account.citoyen_id
+            account.citoyen.fokontany_id = db.query(Fokontany).filter_by(nom='Sabotsy Namehana').one().id
+            db.commit()
+        def request(headers):
+            assert c.post('/api/espace-citoyen/demandes', headers=headers, json={'service_code': 'PAID'}).status_code == 201
+            return c.get('/api/espace-citoyen/demandes', headers=headers).json()[0]['id']
+        did, foreign = request(h), request(other)
+        path = '/api/demandes-citoyens/' + did
+        cp = '/api/espace-citoyen/demandes/' + did
+        def transition(status, headers=admin):
+            return c.patch(path, headers=headers, json={'statut': status})
+        assert transition('Prête').status_code == 409
+        assert transition('En traitement', mid).status_code == 403
+        assert c.patch('/api/demandes-citoyens/' + foreign, headers=operator, json={'statut': 'En traitement'}).status_code == 404
+        listed = c.get('/api/demandes-citoyens/', headers=operator).json()
+        assert did in [d['id'] for d in listed] and foreign not in [d['id'] for d in listed]
+        assert c.get('/api/demandes-citoyens/stats', headers=operator).json()['total'] == len(listed)
+        assert transition('En traitement', operator).status_code == 200
+        assert transition('Approuvée', operator).status_code == 403
+        assert transition('Approuvée').status_code == 200
+        assert transition('Prête').status_code == 409
+        assert c.post(cp + '/generer-document', headers=h).status_code == 409
+        def pay(ref, url=cp, headers=h):
+            return c.post(url + '/payer', headers=headers, json={'reference_paiement': ref})
+        assert pay('invented').status_code == 409
+        body = {'citoyen_id': citizen_id, 'type_paiement': 'Manuel', 'montant': 2000,
+                'idempotency_key': 'payment-policy-1', 'reference_externe': 'receipt-1'}
+        for headers in [operator, mid]:
+            assert c.post('/api/transactions/', headers=headers, json=body).status_code == 403
+        r = c.post('/api/transactions/', headers=admin, json=body)
+        assert r.status_code == 201, r.text
+        ref = r.json()['reference']
+        assert c.post('/api/transactions/', headers=admin, json=body).json()['id'] == r.json()['id']
+        assert c.post('/api/transactions/', headers=admin, json={**body, 'montant': 3000}).status_code == 409
+        assert pay(ref, '/api/espace-citoyen/demandes/' + foreign, other).status_code == 409
+        assert pay(ref).status_code == 200
+        assert pay(ref).status_code == 200
+        second = request(h)
+        assert pay(ref, '/api/espace-citoyen/demandes/' + second).status_code == 409
+        with monkeypatch.context() as patch:
+            patch.setattr(DocumentGenerationService, 'create_or_update_document', lambda *a, **kw: None)
+            assert transition('Prête').status_code == 500
+        assert c.get(cp, headers=h).json()['statut'] == 'Approuvée'
+        assert not any(e['nouveau_statut'] == 'Prête' for e in c.get(cp + '/historique', headers=h).json())
+        assert transition('Prête').status_code == 200
+        assert c.get(cp + '/document', headers=h).status_code == 200
+        assert transition('En traitement').status_code == 409
+        count = len(c.get(cp + '/historique', headers=h).json())
+        assert transition('Prête').status_code == 200
+        assert len(c.get(cp + '/historique', headers=h).json()) == count
+
+
+def test_supervisor_rejection_and_notification_rollback(monkeypatch):
+    from app.models.models import Agent
+    from app.core.security import hash_password
+    from app.services.notification_service import NotificationService
+    with TestClient(app) as c:
+        with SessionLocal() as db:
+            db.add(CatalogueService(code='REJECT_TEST', nom='Rejet', categorie='Certificat', prix_ar=2000, documents_requis=[]))
+            db.add(Agent(matricule='SUP-TEST', nom='Test', prenom='Supervisor',
+                         role='Superviseur', fokontany='Tous', hashed_password=hash_password('supervisor123')))
+            db.commit()
+        token = c.post('/api/auth/login', json={'username': 'SUP-TEST', 'password': 'supervisor123'}).json()['access_token']
+        supervisor = {'Authorization': 'Bearer ' + token}
+        h = register(c, 'reject@example.com')
+        assert c.post('/api/espace-citoyen/demandes', headers=h, json={'service_code': 'REJECT_TEST'}).status_code == 201
+        did = c.get('/api/espace-citoyen/demandes', headers=h).json()[0]['id']
+        path = '/api/demandes-citoyens/' + did
+        def fail(*args, **kwargs):
+            raise RuntimeError('Notification unavailable')
+        with monkeypatch.context() as patch:
+            patch.setattr(NotificationService, 'create_notification', fail)
+            assert c.patch(path, headers=supervisor, json={'statut': 'Rejetée'}).status_code == 500
+        detail = '/api/espace-citoyen/demandes/' + did
+        assert c.get(detail, headers=h).json()['statut'] == 'Soumise'
+        assert len(c.get(detail + '/historique', headers=h).json()) == 1
+        assert c.patch(path, headers=supervisor, json={'statut': 'Rejetée', 'note_agent': 'Pièce illisible'}).status_code == 200
+        assert c.patch(path, headers=supervisor, json={'statut': 'En traitement'}).status_code == 409
+        assert c.post(detail + '/payer', headers=h, json={'reference_paiement': 'fake'}).status_code == 409
+        assert c.post('/api/agents/', headers=supervisor, json={}).status_code == 403
