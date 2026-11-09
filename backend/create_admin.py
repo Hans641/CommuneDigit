@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
-from app.core.config import Base, engine, SessionLocal
+from app.core.config import engine, SessionLocal
 from app.core.security import hash_password
 from app.models.models import (
     Agent, Fokontany, CatalogueService, ProjetCommune, CompteCitoyen, Citoyen
@@ -15,8 +15,9 @@ from app.models.models import (
 from datetime import datetime
 
 def create_tables():
-    Base.metadata.create_all(bind=engine)
-    print("✅ Tables créées / vérifiées")
+    from app.schema import require_current
+    require_current(engine)
+    print("✅ Version du schéma vérifiée")
 
 def create_admin():
     db = SessionLocal()

@@ -9,7 +9,9 @@ os.environ['DOCUMENTS_DIR'] = str(Path(STATE.name) / 'documents')
 
 from fastapi.testclient import TestClient
 from app.main import app
-from app.core.config import SessionLocal
+from app.core.config import SessionLocal, engine
+from app.schema import upgrade_database
+upgrade_database(engine)
 from app.core.security import create_access_token
 from app.models.models import CatalogueService
 from app.services.file_service import FileService
@@ -260,6 +262,7 @@ def test_production_boot_does_not_seed_demo(monkeypatch, tmp_path):
     main = importlib.import_module('app.main')
     from app.models.models import Agent, ProjetCommune
     engine = create_engine('sqlite:///' + str(tmp_path / 'production.db'), connect_args={'check_same_thread': False})
+    upgrade_database(engine)
     sessions = sessionmaker(bind=engine)
     monkeypatch.setattr(main, 'engine', engine)
     monkeypatch.setattr(config, 'SessionLocal', sessions)
