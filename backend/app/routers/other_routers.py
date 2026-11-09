@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.config import get_db
 from app.core.deps import get_current_agent, get_client_ip, require_role
-from app.core.security import hash_password, hash_record
+from app.core.security import hash_password
 from app.models.models import (
     Agent, Alerte, AuditLog, Certificat, DemandePub,
     Fokontany, Transaction, Citoyen, ActeEtatCivil, EvenementDemande
@@ -395,64 +395,22 @@ def sync_data(
     body: SyncRequest, request: Request,
     db: Session = Depends(get_db), current: Agent = Depends(require_role(*OPERATORS)),
 ):
-    """
-    Endpoint de synchronisation offline-first.
-    Algorithme Last Write Wins (LWW) basé sur timestamp.
-    Vérifie l'intégrité SHA-256 de chaque enregistrement.
-    """
-    accepted, conflicts, errors = [], [], []
+    from app.services.sync_service import push_records
+    return push_records(db, current, body.records, get_client_ip(request))
 
-    for record in body.records:
-        try:
-            # 1. Vérifier intégrité SHA-256
-            computed_hash = hash_record({k: str(v) for k, v in record.data.items()})
-            if computed_hash != record.hash:
-                errors.append(record.entity_id)
-                continue
 
-            # 2. LWW : comparer timestamps
-            client_ts = datetime.fromisoformat(record.timestamp)
-
-            if record.entity_type == "acte":
-                existing = db.query(ActeEtatCivil).filter(
-                    ActeEtatCivil.id == record.entity_id
-                ).first()
-                if existing and existing.last_update > client_ts:
-                    conflicts.append(record.entity_id)  # Serveur plus récent → ignorer
-                    continue
-                # Sinon appliquer
-                if existing:
-                    for k, v in record.data.items():
-                        if hasattr(existing, k):
-                            setattr(existing, k, v)
-                    existing.last_update = client_ts
-                accepted.append(record.entity_id)
-
-            elif record.entity_type == "citoyen":
-                existing = db.query(Citoyen).filter(Citoyen.id == record.entity_id).first()
-                if existing and existing.last_update > client_ts:
-                    conflicts.append(record.entity_id)
-                    continue
-                if existing:
-                    for k, v in record.data.items():
-                        if hasattr(existing, k):
-                            setattr(existing, k, v)
-                    existing.last_update = client_ts
-                accepted.append(record.entity_id)
-
-            db.commit()
-
-        except Exception as e:
-            db.rollback()
-            errors.append(record.entity_id)
-
-    log_action(
-        db, action="SYNC", entite="Sync",
-        detail=f"Sync: {len(accepted)} acceptés, {len(conflicts)} conflits, {len(errors)} erreurs",
-        agent_id=current.id, ip_address=get_client_ip(request),
-    )
-
-    return SyncResponse(accepted=accepted, conflicts=conflicts, errors=errors)
+@router_sync.get("/{entity_type}", summary="Récupérer les changements autorisés")
+def sync_changes(
+    entity_type: str,
+    version: Optional[int] = Query(None, ge=0, le=9223372036854775807),
+    scope: Optional[str] = None,
+    after_id: Optional[str] = None,
+    limit: int = Query(100, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current: Agent = Depends(get_current_agent),
+):
+    from app.services.sync_service import pull_records
+    return pull_records(db, current, entity_type, version, after_id, scope, limit)
 
 
 # ══════════════════════════════════════════════════════

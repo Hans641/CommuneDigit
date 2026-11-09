@@ -64,13 +64,12 @@ def test_fresh_upgrade_repeat_and_downgrade(database):
     require_current(database)
 
 
-@pytest.mark.parametrize('extras', [set(), {'fichiers_citoyens'}, {'fichiers_citoyens', 'paiements_demandes'}])
+@pytest.mark.parametrize('extras', [set(), {'fichiers_citoyens'}, {'fichiers_citoyens', 'paiements_demandes'}, {'fichiers_citoyens', 'paiements_demandes', 'password_resets', 'password_reset_limits'}])
 def test_adopt_existing_snapshots_preserves_data(database, extras):
-    metadata = MetaData()
-    for table in Base.metadata.sorted_tables:
-        if table.name not in ADDITIONS or table.name in extras:
-            table.to_metadata(metadata)
-    metadata.create_all(database)  # reproduce historical, unversioned installations
+    revision = '0001' if not extras else ('0002' if extras == {'fichiers_citoyens'} else ('0004' if 'password_resets' in extras else '0003'))
+    with database.begin() as connection:
+        command.upgrade(config(connection), revision)
+        connection.execute(text('DROP TABLE alembic_version'))
     sentinel(database)
     adopt_database(database)
     require_current(database)
@@ -82,7 +81,9 @@ def test_adopt_existing_snapshots_preserves_data(database, extras):
 
 
 def test_adoption_rejects_drift_without_stamping(database):
-    Base.metadata.create_all(database, tables=[t for t in Base.metadata.sorted_tables if t.name not in {'password_resets', 'password_reset_limits'}])
+    with database.begin() as connection:
+        command.upgrade(config(connection), '0003')
+        connection.execute(text('DROP TABLE alembic_version'))
     sentinel(database)
     with database.begin() as connection:
         connection.execute(text('ALTER TABLE fokontany ADD COLUMN unexpected INTEGER'))
@@ -110,3 +111,35 @@ def test_api_refuses_unversioned_database(database, monkeypatch):
         with TestClient(main.app):
             pass
     assert inspect(database).get_table_names() == []
+
+
+def test_sync_upgrade_backfill_and_safe_column_rollback(database):
+    from sqlalchemy import Table
+    from datetime import datetime
+    from uuid import uuid4
+    with database.begin() as connection:
+        command.upgrade(config(connection), '0004')
+        metadata = MetaData()
+        citizen_table = Table('citoyens', metadata, autoload_with=connection)
+        account_table = Table('comptes_citoyens', metadata, autoload_with=connection)
+        acte_table = Table('actes_etat_civil', metadata, autoload_with=connection)
+        cid, aid = str(uuid4()), str(uuid4())
+        connection.execute(citizen_table.insert().values(id=cid, nom='Conserver', prenom='Migration',
+                           telephone='0340000000', is_active=True, last_update=datetime.utcnow()))
+        connection.execute(account_table.insert().values(email='migration@example.com', citoyen_id=cid,
+                           hashed_password='test-only', is_active=True))
+        connection.execute(acte_table.insert().values(id=aid, reference='MIGRATION-TEST', type_acte='Naissance',
+                           nom_concerne='Conserver', date_evenement=datetime(2024, 1, 1), citoyen_id=cid,
+                           statut='En attente', is_validated=False))
+    upgrade_database(database)
+    with database.begin() as connection:
+        assert connection.execute(text('SELECT COUNT(*) FROM sync_changes')).scalar_one() == 2
+        assert connection.execute(text('SELECT COUNT(*) FROM citoyens WHERE sync_updated_at IS NOT NULL')).scalar_one() == 1
+        command.downgrade(config(connection), '0004')
+        assert connection.execute(text('SELECT nom FROM citoyens')).scalar_one() == 'Conserver'
+        assert connection.execute(text('SELECT citoyen_id FROM comptes_citoyens')).scalar_one() == cid
+        assert connection.execute(text('SELECT citoyen_id FROM actes_etat_civil')).scalar_one() == cid
+    upgrade_database(database)
+    require_current(database)
+    with database.begin() as connection:
+        command.check(config(connection))

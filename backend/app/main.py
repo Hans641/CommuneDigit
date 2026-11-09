@@ -292,3 +292,11 @@ def root():
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     return Response(status_code=204)
+
+
+from sqlalchemy.orm.exc import StaleDataError
+
+
+@app.exception_handler(StaleDataError)
+def concurrent_edit(request, exc):
+    return JSONResponse(status_code=409, content={"detail": "Le dossier a changé pendant la modification ; rechargez-le avant de réessayer"})

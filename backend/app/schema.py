@@ -5,13 +5,13 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from alembic.runtime.migration import MigrationContext
 from alembic.autogenerate import compare_metadata
-from sqlalchemy import MetaData, inspect
+from sqlalchemy import MetaData, inspect, Table, Column, ForeignKey
 from app.core.config import Base, engine
 from app.models import models  # register metadata
 
 BACKEND = Path(__file__).resolve().parents[1]
 RESET_TABLES = {'password_resets', 'password_reset_limits'}
-ADDITIONS = {'fichiers_citoyens', 'paiements_demandes'} | RESET_TABLES
+ADDITIONS = {'fichiers_citoyens', 'paiements_demandes', 'sync_receipts', 'sync_changes', 'sync_clock'} | RESET_TABLES
 
 
 def config(connection=None):
@@ -46,6 +46,7 @@ def adopt_database(db_engine=engine):
             frozenset(baseline): '0001',
             frozenset(baseline | {'fichiers_citoyens'}): '0002',
             frozenset(baseline | {'fichiers_citoyens', 'paiements_demandes'}): '0003',
+            frozenset(baseline | {'fichiers_citoyens', 'paiements_demandes'} | RESET_TABLES): '0004',
         }
         revision = revisions.get(frozenset(tables))
         if not revision:
@@ -53,7 +54,16 @@ def adopt_database(db_engine=engine):
         expected = MetaData()
         for table in Base.metadata.sorted_tables:
             if table.name in tables:
-                table.to_metadata(expected)
+                # Historical schemas predate server synchronization watermarks.
+                columns = []
+                for column in table.columns:
+                    if column.name in {'sync_updated_at', 'sync_version'}:
+                        continue
+                    columns.append(Column(column.name, column.type,
+                        *[ForeignKey(fk.target_fullname) for fk in column.foreign_keys],
+                        primary_key=column.primary_key, nullable=column.nullable,
+                        unique=column.unique, index=column.index, server_default=column.server_default))
+                Table(table.name, expected, *columns)
         diffs = compare_metadata(MigrationContext.configure(connection, opts={'compare_type': True, 'compare_server_default': True}), expected)
         # Alembic does not reliably detect primary-key or native enum changes.
         for name, table in expected.tables.items():

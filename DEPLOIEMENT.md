@@ -183,3 +183,8 @@ Les nouvelles installations utilisent `alembic upgrade head` depuis `backend`. L
 ## Récupération du mot de passe
 
 La migration `0004` ajoute les jetons à usage unique et les limites de demandes. En développement, le courrier est enregistré dans un dossier privé. En production, configurer `EMAIL_BACKEND=smtp` et une `PUBLIC_FRONTEND_URL` HTTPS, ou `EMAIL_BACKEND=disabled` pour désactiver le parcours. Le transport fichier est refusé en production. Voir [PASSWORD_RECOVERY.md](backend/PASSWORD_RECOVERY.md). Les anciennes sessions citoyennes devront se reconnecter après cette mise à jour.
+
+
+## Journal de synchronisation
+
+La migration `0005` ajoute les versions serveur, reçus et journal de changements. Arrêter tous les processus d’écriture avant application, puis redémarrer les workers pour activer le suivi ORM. Voir [OFFLINE_SYNC.md](backend/OFFLINE_SYNC.md). Les écritures SQL externes/en masse ne doivent pas contourner ce suivi. Le raccordement des files locales mobiles reste une étape distincte.

@@ -67,3 +67,13 @@ def hash_record(record_dict: dict) -> str:
 def password_session_stamp(hashed_password: str) -> str:
     """Password changes invalidate citizen JWTs without exposing password hashes."""
     return hmac.new(settings.secret_key.encode(), hashed_password.encode(), hashlib.sha256).hexdigest()
+
+
+def acte_integrity_hash(acte) -> str:
+    """Same persisted business fields for online and offline civil records."""
+    return hash_record({
+        "reference": acte.reference, "type_acte": acte.type_acte,
+        "nom_concerne": acte.nom_concerne,
+        "date_evenement": acte.date_evenement.isoformat(),
+        "fokontany_id": str(acte.fokontany_id or ""),
+    })

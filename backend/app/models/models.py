@@ -7,7 +7,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     Boolean, Column, DateTime, Float, ForeignKey,
-    Integer, String, Text, Enum as SAEnum, JSON
+    BigInteger, Integer, String, Text, Enum as SAEnum, JSON
 )
 from sqlalchemy.orm import relationship
 
@@ -74,6 +74,9 @@ class Citoyen(Base):
     adresse      = Column(Text, nullable=True)
     fokontany_id = Column(Integer, ForeignKey("fokontany.id"), nullable=True)
     is_active    = Column(Boolean, default=True)
+    sync_version = Column(BigInteger, nullable=False, default=0, server_default='0')
+    __mapper_args__ = {'version_id_col': sync_version, 'version_id_generator': False}
+    sync_updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
     last_update  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_at   = Column(DateTime, default=datetime.utcnow)
 
@@ -231,6 +234,9 @@ class ActeEtatCivil(Base):
     agent_id        = Column(Integer, ForeignKey("agents.id"), nullable=True)
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    sync_version = Column(BigInteger, nullable=False, default=0, server_default='0')
+    __mapper_args__ = {'version_id_col': sync_version, 'version_id_generator': False}
+    sync_updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
     last_update     = Column(DateTime, default=datetime.utcnow)
 
     citoyen       = relationship("Citoyen", back_populates="actes")
@@ -473,3 +479,33 @@ class PasswordResetLimit(Base):
     bucket = Column(String(64), primary_key=True)
     count = Column(Integer, nullable=False)
     window_start = Column(DateTime, nullable=False, index=True)
+
+
+class SyncReceipt(Base):
+    """Durable acknowledgment: an already committed operation is never reapplied."""
+    __tablename__ = "sync_receipts"
+    operation_key = Column(String(64), primary_key=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
+    entity_type = Column(String(20), nullable=False)
+    entity_id = Column(String(36), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class SyncClock(Base):
+    __tablename__ = "sync_clock"
+    id = Column(Integer, primary_key=True)
+    instance_id = Column(String(36), nullable=False)
+    value = Column(BigInteger, nullable=False)
+
+
+class SyncChange(Base):
+    __tablename__ = "sync_changes"
+    version = Column(BigInteger, primary_key=True)
+    entity_type = Column(String(20), primary_key=True)
+    entity_id = Column(String(36), primary_key=True)
+    old_fokontany_id = Column(Integer, nullable=True)
+    new_fokontany_id = Column(Integer, nullable=True)
+
+
+# Install ORM change tracking for online as well as offline mutations.
+from app.core import sync_tracking
