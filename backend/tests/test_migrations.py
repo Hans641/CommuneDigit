@@ -6,7 +6,7 @@ from alembic import command
 from alembic.runtime.migration import MigrationContext
 from sqlalchemy import create_engine, MetaData, inspect, text, event
 from app.core.config import Base
-from app.schema import config, upgrade_database, adopt_database, require_current
+from app.schema import ADDITIONS, config, upgrade_database, adopt_database, require_current
 
 TARGETS = ['sqlite'] + (['postgresql'] if os.environ.get('MIGRATION_TEST_POSTGRES_URL') else [])
 
@@ -68,7 +68,7 @@ def test_fresh_upgrade_repeat_and_downgrade(database):
 def test_adopt_existing_snapshots_preserves_data(database, extras):
     metadata = MetaData()
     for table in Base.metadata.sorted_tables:
-        if table.name not in {'fichiers_citoyens', 'paiements_demandes'} or table.name in extras:
+        if table.name not in ADDITIONS or table.name in extras:
             table.to_metadata(metadata)
     metadata.create_all(database)  # reproduce historical, unversioned installations
     sentinel(database)
@@ -82,7 +82,7 @@ def test_adopt_existing_snapshots_preserves_data(database, extras):
 
 
 def test_adoption_rejects_drift_without_stamping(database):
-    Base.metadata.create_all(database)
+    Base.metadata.create_all(database, tables=[t for t in Base.metadata.sorted_tables if t.name not in {'password_resets', 'password_reset_limits'}])
     sentinel(database)
     with database.begin() as connection:
         connection.execute(text('ALTER TABLE fokontany ADD COLUMN unexpected INTEGER'))

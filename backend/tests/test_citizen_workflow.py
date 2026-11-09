@@ -240,7 +240,7 @@ def test_production_config_and_existing_demo_accounts(monkeypatch):
     from pydantic import ValidationError
     from app.core.config import Settings, get_settings
     safe = dict(app_env='production', secret_key='x' * 64, debug=False,
-                payment_demo_enabled=False, seed_demo_accounts=False, _env_file=None)
+                payment_demo_enabled=False, seed_demo_accounts=False, email_backend='disabled', _env_file=None)
     assert Settings(**safe).app_env == 'production'
     for changes in [dict(secret_key='short'), dict(secret_key='dev-secret-key-changez-en-prod'),
                     dict(debug=True), dict(payment_demo_enabled=True), dict(seed_demo_accounts=True)]:

@@ -15,6 +15,7 @@ import LoginPage        from './pages/LoginPage';
 import PublicPage       from './pages/PublicPage';
 import DashboardLayout  from './pages/DashboardLayout';
 import CitoyenPortail   from './pages/CitoyenPortail';
+import PasswordRecovery from './pages/PasswordRecovery';
 
 export default function App() {
   // Agent session rehydration
@@ -28,6 +29,7 @@ export default function App() {
   });
 
   const [view, setView] = useState(() => {
+    if (['/forgot-password', '/reset-password'].includes(window.location.pathname)) return 'recovery';
     if (localStorage.getItem('cd_token'))         return 'dashboard';
     if (localStorage.getItem('cd_citoyen_token')) return 'citoyen';
     return 'public';
@@ -63,6 +65,7 @@ export default function App() {
   return (
     <AuthContext.Provider value={{ user, login, logout }}>
       <AppContext.Provider value={{ lang, setLang, theme, toggleTheme }}>
+        {view === 'recovery' && <PasswordRecovery />}
         {view === 'public'    && <PublicPage onLogin={() => setView('login')} onCitoyen={() => setView('citoyen')} />}
         {view === 'login'     && <LoginPage  onBack={() => setView('public')} />}
         {view === 'dashboard' && user && <DashboardLayout />}

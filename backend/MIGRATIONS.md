@@ -30,7 +30,7 @@ python -m app.schema check
 
 4. Redémarrer l'API et vérifier `/api/health`, une connexion et la lecture d'un dossier existant.
 
-L'adoption reconnaît trois états : tables historiques (`0001`), ajout de `fichiers_citoyens` (`0002`), puis ajout de `paiements_demandes` (`0003`). Elle contrôle colonnes, types, nullabilité, index, contraintes uniques, clés étrangères, clés primaires et valeurs des enums natifs PostgreSQL avant d'attribuer une version. Elle applique ensuite uniquement les migrations manquantes.
+L'adoption reconnaît trois états : tables historiques (`0001`), ajout de `fichiers_citoyens` (`0002`), puis ajout de `paiements_demandes` (`0003`). Elle contrôle colonnes, types, nullabilité, index, contraintes uniques, clés étrangères, clés primaires et valeurs des enums natifs PostgreSQL avant d'attribuer une version. Elle applique ensuite uniquement les migrations manquantes, dont `0004` pour les jetons de récupération et leurs limites.
 
 Une table inconnue, un schéma incomplet ou une divergence détectée provoquent un refus sans attribution de version. Examiner l'écart et préparer une migration de reprise adaptée ; ne pas contourner ce contrôle avec `alembic stamp head`. Une base déjà versionnée utilise `alembic upgrade head`, pas `adopt`. L'adoption concerne les instantanés historiques reconnus, pas les futures mises à jour des modèles.
 
@@ -55,7 +55,7 @@ Ne pas modifier les révisions déjà publiées. Relire particulièrement les mi
 
 ## Retours arrière
 
-`alembic downgrade -1` exécute le retour arrière de la dernière révision. Les trois migrations initiales créent des tables : leurs downgrades suppriment ces tables et leurs données. Un rollback applicatif ne doit pas déclencher cette commande automatiquement ; restaurer la sauvegarde lorsque la conservation des données est nécessaire.
+`alembic downgrade -1` exécute le retour arrière de la dernière révision. Les quatre migrations actuelles créent des tables : leurs downgrades suppriment ces tables et leurs données. Un rollback applicatif ne doit pas déclencher cette commande automatiquement ; restaurer la sauvegarde lorsque la conservation des données est nécessaire.
 
 ## Tests
 

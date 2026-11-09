@@ -10,7 +10,8 @@ from app.core.config import Base, engine
 from app.models import models  # register metadata
 
 BACKEND = Path(__file__).resolve().parents[1]
-ADDITIONS = {'fichiers_citoyens', 'paiements_demandes'}
+RESET_TABLES = {'password_resets', 'password_reset_limits'}
+ADDITIONS = {'fichiers_citoyens', 'paiements_demandes'} | RESET_TABLES
 
 
 def config(connection=None):
@@ -44,7 +45,7 @@ def adopt_database(db_engine=engine):
         revisions = {
             frozenset(baseline): '0001',
             frozenset(baseline | {'fichiers_citoyens'}): '0002',
-            frozenset(Base.metadata.tables): '0003',
+            frozenset(baseline | {'fichiers_citoyens', 'paiements_demandes'}): '0003',
         }
         revision = revisions.get(frozenset(tables))
         if not revision:

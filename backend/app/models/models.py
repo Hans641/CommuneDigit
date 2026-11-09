@@ -457,3 +457,19 @@ class PaiementDemande(Base):
     transaction_id = Column(String(36), ForeignKey("transactions.id"), primary_key=True)
     demande_id = Column(String(36), ForeignKey("demandes_service.id"), nullable=False, unique=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PasswordReset(Base):
+    __tablename__ = "password_resets"
+    token_hash = Column(String(64), primary_key=True)
+    compte_id = Column(Integer, ForeignKey("comptes_citoyens.id"), nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class PasswordResetLimit(Base):
+    __tablename__ = "password_reset_limits"
+    bucket = Column(String(64), primary_key=True)
+    count = Column(Integer, nullable=False)
+    window_start = Column(DateTime, nullable=False, index=True)

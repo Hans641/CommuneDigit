@@ -39,12 +39,32 @@ class Settings(BaseSettings):
     at_username: str = "sandbox"
     at_sender_id: str = "CommuneDigit"
 
+    # Email delivery: private local mailbox in development, SMTP when configured.
+    email_backend: Literal["file", "smtp", "disabled"] = "file"
+    email_outbox_dir: str = "/tmp/communedigit-mail"
+    email_from: str = "noreply@communedigit.local"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    public_frontend_url: str = "http://localhost:8082"
+
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
     @model_validator(mode="after")
     def validate_production(self):
+        from urllib.parse import urlsplit
+        url = urlsplit(self.public_frontend_url)
+        if url.scheme not in {"http", "https"} or not url.netloc or url.query or url.fragment or url.username is not None:
+            raise ValueError("PUBLIC_FRONTEND_URL doit être une URL HTTP(S) sans identifiants ni paramètres")
+        if self.email_backend == "smtp" and not self.smtp_host:
+            raise ValueError("SMTP_HOST requis pour le transport SMTP")
         if self.app_env == "production":
+            if self.email_backend == "file":
+                raise ValueError("Production : utiliser EMAIL_BACKEND=smtp ou disabled")
+            if self.email_backend == "smtp" and url.scheme != "https":
+                raise ValueError("Production : PUBLIC_FRONTEND_URL doit utiliser HTTPS")
             if len(self.secret_key) < 32 or self.secret_key == "dev-secret-key-changez-en-prod":
                 raise ValueError("Production : SECRET_KEY unique d'au moins 32 caractères requise")
             if self.debug or self.payment_demo_enabled or self.seed_demo_accounts:

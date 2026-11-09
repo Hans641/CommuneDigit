@@ -3,6 +3,7 @@ CommuneDigit — Sécurité
 JWT tokens + hachage bcrypt des mots de passe
 """
 import hashlib
+import hmac
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -61,3 +62,8 @@ def hash_record(record_dict: dict) -> str:
     """Hash un dictionnaire de données d'un acte civil."""
     canonical = "|".join(f"{k}:{v}" for k, v in sorted(record_dict.items()))
     return sha256_hash(canonical)
+
+
+def password_session_stamp(hashed_password: str) -> str:
+    """Password changes invalidate citizen JWTs without exposing password hashes."""
+    return hmac.new(settings.secret_key.encode(), hashed_password.encode(), hashlib.sha256).hexdigest()

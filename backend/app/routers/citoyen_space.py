@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
 
 from app.core.config import get_db, get_settings
-from app.core.security import create_access_token, verify_password, hash_password, decode_token
+from app.core.security import create_access_token, verify_password, hash_password, decode_token, password_session_stamp
 from app.models.models import (
     CompteCitoyen, Citoyen, Fokontany,
     CatalogueService, DemandeService, ProjetCommune, Alerte, Notification, FichierCitoyen, DocumentFinal, EvenementDemande, Transaction, PaiementDemande
@@ -50,7 +50,8 @@ def get_current_citoyen(
         CompteCitoyen.id == compte_id,
         CompteCitoyen.is_active == True
     ).first()
-    if not compte:
+    import hmac
+    if not compte or not hmac.compare_digest(str(payload.get("pwd", "")), password_session_stamp(compte.hashed_password)):
         raise exc
     return compte
 
@@ -60,7 +61,7 @@ def get_current_citoyen(
 # ══════════════════════════════════════════════════════════════════
 class RegisterRequest(BaseModel):
     email: str = Field(..., min_length=5)
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=8, max_length=256)
     nom: str = Field(..., min_length=1)
     prenom: str = Field(..., min_length=1)
     telephone: str = Field(..., min_length=8)
@@ -88,8 +89,8 @@ class ProfilUpdate(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     ancien_password: str = Field(..., min_length=1)
-    nouveau_password: str = Field(..., min_length=6)
-    confirmer_password: str = Field(..., min_length=6)
+    nouveau_password: str = Field(..., min_length=8, max_length=256)
+    confirmer_password: str = Field(..., min_length=8, max_length=256)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -124,7 +125,7 @@ def inscription(body: RegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(compte)
 
-    token = create_access_token({"sub": str(compte.id), "type": "citoyen"})
+    token = create_access_token({"sub": str(compte.id), "type": "citoyen", "pwd": password_session_stamp(compte.hashed_password)})
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -153,7 +154,7 @@ def login_citoyen(body: LoginCitoyenRequest, db: Session = Depends(get_db)):
     compte.last_login = datetime.utcnow()
     db.commit()
 
-    token = create_access_token({"sub": str(compte.id), "type": "citoyen"})
+    token = create_access_token({"sub": str(compte.id), "type": "citoyen", "pwd": password_session_stamp(compte.hashed_password)})
     citoyen = compte.citoyen
 
     return {
@@ -800,75 +801,37 @@ def change_password(
     
     # Mettre à jour le mot de passe
     compte.hashed_password = hash_password(body.nouveau_password)
+    from app.services.password_recovery import invalidate_resets
+    invalidate_resets(db, compte.id)
     db.commit()
     
     return {"message": "Mot de passe changé avec succès"}
 
 
 class ForgotPasswordRequest(BaseModel):
-    email: str = Field(..., min_length=5)
+    email: EmailStr
 
-@router.post("/forgot-password", summary="Demander un reset de mot de passe")
-def forgot_password(
-    body: ForgotPasswordRequest,
-    db: Session = Depends(get_db),
-):
-    """
-    Envoie un email avec un lien de réinitialisation.
-    (En production, intégrer avec SendGrid ou équivalent)
-    """
-    compte = db.query(CompteCitoyen).filter(
-        CompteCitoyen.email == body.email.lower()
-    ).first()
-    
-    if not compte:
-        # Ne pas révéler si l'email existe (sécurité)
-        return {"message": "Si un compte existe, un email de reset a été envoyé"}
-    
-    # Générer un token de reset (valide 1 heure)
-    reset_token = create_access_token(
-        {"sub": str(compte.id), "type": "reset"},
-        expires_delta=timedelta(hours=1)
-    )
-    
-    # TODO: Envoyer l'email avec le lien:
-    # email = f"https://votre-domaine.com/reset-password?token={reset_token}"
-    # NotificationService.send_email(compte.email, "Réinitialisation de mot de passe", email)
-    
-    return {"message": "Si un compte existe, un email de reset a été envoyé"}
+
+@router.post("/forgot-password", status_code=202, summary="Demander une réinitialisation")
+def forgot_password(body: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)):
+    from app.services.password_recovery import request_reset
+    request_reset(db, str(body.email).strip().lower(), request.client.host if request.client else "unknown")
+    return {"message": "Si un compte actif correspond, un lien de réinitialisation vous sera envoyé."}
 
 
 class ResetPasswordRequest(BaseModel):
-    token: str
-    nouveau_password: str = Field(..., min_length=6)
-    confirmer_password: str = Field(..., min_length=6)
+    token: str = Field(..., min_length=32, max_length=256)
+    nouveau_password: str = Field(..., min_length=8, max_length=256)
+    confirmer_password: str = Field(..., min_length=8, max_length=256)
+
 
 @router.post("/reset-password", summary="Réinitialiser le mot de passe")
-def reset_password(
-    body: ResetPasswordRequest,
-    db: Session = Depends(get_db),
-):
-    """Réinitialise le mot de passe avec un token de reset."""
-    # Valider le token
-    payload = decode_token(body.token)
-    if not payload or payload.get("type") != "reset":
-        raise HTTPException(401, "Token invalide")
-    
-    compte = db.query(CompteCitoyen).filter(
-        CompteCitoyen.id == int(payload["sub"])
-    ).first()
-    if not compte:
-        raise HTTPException(404, "Compte introuvable")
-    
-    # Vérifier que les deux mots de passe correspondent
+def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
     if body.nouveau_password != body.confirmer_password:
         raise HTTPException(400, "Les mots de passe ne correspondent pas")
-    
-    # Mettre à jour le mot de passe
-    compte.hashed_password = hash_password(body.nouveau_password)
-    db.commit()
-    
-    return {"message": "Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter."}
+    from app.services.password_recovery import consume_reset
+    consume_reset(db, body.token, body.nouveau_password)
+    return {"message": "Mot de passe réinitialisé. Reconnectez-vous avec votre nouveau mot de passe."}
 
 
 @router.get("/demandes/{demande_id}/historique", summary="Historique de ma demande")
