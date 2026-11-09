@@ -8,3 +8,12 @@ venv/
 __pycache__/
 *.pyc
 .env
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/**/build/
+mobile/ios/Pods/
+mobile/ios/build/
+mobile/ios/*.xcworkspace/xcuserdata/
+mobile/ios/**/xcuserdata/
+mobile/coverage/
+mobile/build/

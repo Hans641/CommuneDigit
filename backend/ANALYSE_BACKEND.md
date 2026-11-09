@@ -42,4 +42,4 @@ Voir `DEPLOIEMENT.md` et `.env.example`. `PAYMENT_DEMO_ENABLED=true` active les 
 
 ## Synchronisation hors connexion
 
-Le backend dispose d’un push validé avec reçus durables et d’un pull paginé par journal transactionnel. Les droits fokontany, conflits de dates et écritures concurrentes sont contrôlés. La migration `0005` inscrit également les modifications en ligne et les transferts de périmètre. Voir `OFFLINE_SYNC.md`. Les intégrations de stockage local/file de renvoi dans les clients, la rétention du journal, les tests de charge et l’alignement territorial complet des anciens CRUD restent à traiter.
+Le backend dispose d’un push validé avec reçus durables et d’un pull paginé par journal transactionnel. Les droits fokontany, conflits de dates et écritures concurrentes sont contrôlés. La migration `0005` inscrit également les modifications en ligne et les transferts de périmètre. Voir `OFFLINE_SYNC.md`. Le client mobile dispose maintenant du stockage chiffré et de la file de renvoi (voir `mobile/README.md`). La validation native sur appareil, la rétention du journal, les tests de charge et l’alignement territorial complet des anciens CRUD restent à traiter.

@@ -1,9 +1,10 @@
 // ═══════════════════════════════════════════════════════════════
 //  CommuneDigit Mobile — Écrans Citoyens / Dossiers / Paiements / Paramètres
 // ═══════════════════════════════════════════════════════════════
+import {SyncPanel} from './OfflineRecords';
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, ScrollView, FlatList, TouchableOpacity,
+  Alert, View, Text, ScrollView, FlatList, TouchableOpacity,
   StyleSheet, Animated, StatusBar, Switch, TextInput,
 } from 'react-native';
 import {
@@ -23,261 +24,8 @@ import { typography, spacing, radius, shadows, touchTarget } from '../theme';
 // ════════════════════════════════════════════════════════════════
 //  ÉCRAN CITOYENS
 // ════════════════════════════════════════════════════════════════
-export function CitoyensScreen() {
-  const { theme } = useTheme();
-  const { tr, lang } = useLang();
-  const [search,   setSearch]   = useState('');
-  const [selected, setSelected] = useState(null);
-  const [data,     setData]     = useState([]);
-  const [loading,  setLoading]  = useState(true);
+export {CitoyensScreen,DossiersScreen} from './OfflineRecords';
 
-  useEffect(() => {
-    const { citoyensAPI } = require('../services/api');
-    setLoading(true);
-    const timer = setTimeout(() => {
-      citoyensAPI.list({ q: search || undefined, limit: 50 })
-        .then(res => { setData(res); setLoading(false); })
-        .catch(() => setLoading(false));
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search]);
-
-  const filtered = data;
-
-  return (
-    <View style={{ flex: 1, backgroundColor: theme.bg }}>
-      {/* En-tête */}
-      <View style={[styles.screenHeader, { backgroundColor: theme.bgCard, borderBottomColor: theme.border }]}>
-        <Text style={[typography.h2, { color: theme.textPrimary }]}>{tr('citoyens', 'titre')}</Text>
-        <TouchableOpacity style={[styles.addBtn, { backgroundColor: theme.accent }]}>
-          <Plus size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Recherche */}
-      <View style={[styles.searchBar, { backgroundColor: theme.bgCard, borderBottomColor: theme.border }]}>
-        <View style={[styles.searchInput, { backgroundColor: theme.bgInput, borderColor: theme.border }]}>
-          <Search size={16} color={theme.textMuted} />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder={tr('citoyens', 'recherche')}
-            placeholderTextColor={theme.textMuted}
-            style={[typography.body, { color: theme.textPrimary, flex: 1, marginLeft: 8 }]}
-          />
-        </View>
-        <TouchableOpacity style={[styles.filterBtn, { backgroundColor: theme.accentBg, borderColor: theme.accent + '40' }]}>
-          <Filter size={16} color={theme.accent} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Compteur */}
-      <View style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }}>
-        <Text style={[typography.caption, { color: theme.textMuted }]}>
-          {filtered.length} {lang === 'mg' ? 'olom-pirenena' : 'citoyens'}
-        </Text>
-      </View>
-
-      {/* Liste */}
-      <FlatList
-        data={filtered}
-        keyExtractor={item => String(item.id)}
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            activeOpacity={0.75}
-            onPress={() => setSelected(selected?.id === item.id ? null : item)}
-            style={[
-              styles.citoyenCard,
-              {
-                backgroundColor: theme.bgCard,
-                borderColor: selected?.id === item.id ? theme.accent : theme.border,
-                borderWidth: selected?.id === item.id ? 1.5 : 1,
-                ...shadows.sm,
-                shadowColor: theme.shadowColor,
-                shadowOpacity: theme.shadowOpacity,
-              },
-            ]}
-          >
-            {/* Ligne principale */}
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Avatar
-                initials={item.nom.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                size={44}
-                color={item.is_active ? theme.accent : theme.textMuted}
-              />
-              <View style={{ flex: 1, marginLeft: spacing.md }}>
-                <Text style={[typography.body, { color: theme.textPrimary, fontWeight: '600' }]}>
-                  {item.nom}
-                </Text>
-                <Text style={[typography.caption, { color: theme.textMuted, marginTop: 2 }]}>
-                  CIN : {item.cin || 'Non renseigné'}
-                </Text>
-              </View>
-              <View style={[
-                styles.statusDot,
-                { backgroundColor: item.is_active ? theme.success : theme.textMuted },
-              ]} />
-            </View>
-
-            {/* Détails dépliables */}
-            {selected?.id === item.id && (
-              <View style={[styles.citoyenDetails, { borderTopColor: theme.border }]}>
-                <View style={styles.detailRow}>
-                  <MapPin size={14} color={theme.textMuted} />
-                  <Text style={[typography.bodySm, { color: theme.textSecondary, marginLeft: 6 }]}>
-                    {item.fokontany?.nom || item.fokontany_id || '—'}
-                  </Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Phone size={14} color={theme.textMuted} />
-                  <Text style={[typography.bodySm, { color: theme.textSecondary, marginLeft: 6 }]}>
-                    {item.telephone || '—'}
-                  </Text>
-                </View>
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: spacing.md }}>
-                  <Button
-                    label={tr('common', 'details')}
-                    variant="secondary"
-                    style={{ flex: 1, minHeight: 38 }}
-                  />
-                  <Button
-                    label={tr('common', 'modifier') ?? 'Modifier'}
-                    variant="primary"
-                    style={{ flex: 1, minHeight: 38 }}
-                  />
-                </View>
-              </View>
-            )}
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <User size={48} color={theme.textMuted} />
-            <Text style={[typography.body, { color: theme.textMuted, marginTop: spacing.md }]}>
-              {tr('citoyens', 'aucun')}
-            </Text>
-          </View>
-        }
-      />
-    </View>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════
-//  ÉCRAN DOSSIERS
-// ════════════════════════════════════════════════════════════════
-const FILTERS = [
-  { key: 'tous',       statut: null },
-  { key: 'en_cours',   statut: 'En cours' },
-  { key: 'en_attente', statut: 'En attente' },
-  { key: 'valides',    statut: 'Validé' },
-  { key: 'rejetes',    statut: 'Rejeté' },
-];
-
-export function DossiersScreen() {
-  const { theme } = useTheme();
-  const { tr, lang } = useLang();
-  const [activeFilter, setActiveFilter] = useState('tous');
-  const [data,         setData]         = useState([]);
-  const [loading,      setLoading]      = useState(true);
-
-  useEffect(() => {
-    const { actesAPI } = require('../services/api');
-    const filterObj = FILTERS.find(f => f.key === activeFilter);
-    const params = { limit: 100 };
-    if (filterObj?.statut) params.statut = filterObj.statut;
-    setLoading(true);
-    actesAPI.list(params)
-      .then(res => { setData(res); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [activeFilter]);
-
-  const filtered = data;
-
-  const statusLabels = {
-    valide:     tr('common', 'valide'),
-    en_cours:   tr('common', 'enCours'),
-    en_attente: tr('common', 'enAttente'),
-    rejete:     tr('common', 'rejete'),
-  };
-
-  return (
-    <View style={{ flex: 1, backgroundColor: theme.bg }}>
-      {/* En-tête */}
-      <View style={[styles.screenHeader, { backgroundColor: theme.bgCard, borderBottomColor: theme.border }]}>
-        <Text style={[typography.h2, { color: theme.textPrimary }]}>{tr('dossiers', 'titre')}</Text>
-        <TouchableOpacity style={[styles.addBtn, { backgroundColor: theme.accent }]}>
-          <Plus size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Filtres horizontaux */}
-      <View style={[styles.filtersRow, { backgroundColor: theme.bgCard, borderBottomColor: theme.border }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg }}>
-          {FILTERS.map(f => (
-            <FilterChip
-              key={f.key}
-              label={tr('dossiers', f.key)}
-              active={activeFilter === f.key}
-              onPress={() => setActiveFilter(f.key)}
-            />
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Compteur */}
-      <View style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }}>
-        <Text style={[typography.caption, { color: theme.textMuted }]}>
-          {filtered.length} {lang === 'mg' ? 'rakitra' : 'dossier(s)'}
-        </Text>
-      </View>
-
-      {/* Liste */}
-      <FlatList
-        data={filtered}
-        keyExtractor={item => String(item.id)}
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-        renderItem={({ item }) => (
-          <Card style={{ gap: 0 }} onPress={() => {}}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-              <View style={{ flex: 1 }}>
-                <Text style={[typography.overline, { color: theme.accent }]}>{item.id}</Text>
-                <Text style={[typography.body, { color: theme.textPrimary, fontWeight: '600', marginTop: 2 }]}>
-                  {item.type_acte}
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 6 }}>
-                  <User size={12} color={theme.textMuted} />
-                  <Text style={[typography.caption, { color: theme.textMuted }]}>{item.citoyen?.nom || item.nom || '—'}</Text>
-                </View>
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                <StatusBadge status={item.statut?.toLowerCase().replace(' ', '_') || 'inconnu'} label={item.statut || '—'} />
-                <Text style={[typography.caption, { color: theme.textMuted }]}>{item.date_evenement ? new Date(item.date_evenement).toLocaleDateString('fr-FR') : '—'}</Text>
-              </View>
-            </View>
-          </Card>
-        )}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <FileText size={48} color={theme.textMuted} />
-            <Text style={[typography.body, { color: theme.textMuted, marginTop: spacing.md }]}>
-              {tr('dossiers', 'aucun')}
-            </Text>
-          </View>
-        }
-      />
-    </View>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════
-//  ÉCRAN PAIEMENTS
-// ════════════════════════════════════════════════════════════════
 export function PaiementsScreen() {
   const { theme } = useTheme();
   const { tr, lang } = useLang();
@@ -293,7 +41,7 @@ export function PaiementsScreen() {
   }, []);
 
   const total = data
-    .filter(p => p.statut === 'Confirmé')
+    .filter(p => p.statut === 'Confirmé' && p.type_paiement !== 'Démo')
     .reduce((sum, p) => sum + (p.montant || 0), 0);
 
   const statusLabels = {
@@ -332,8 +80,8 @@ export function PaiementsScreen() {
               </Text>
               <View style={{ flexDirection: 'row', gap: spacing.xl, marginTop: spacing.lg }}>
                 {[
-                  { label: tr('paiements', 'aujourd'), val: '37 500' },
-                  { label: tr('paiements', 'semaine'), val: '152 000' },
+                  { label: tr('paiements', 'aujourd'), val: '—' },
+                  { label: tr('paiements', 'semaine'), val: '—' },
                 ].map(item => (
                   <View key={item.label}>
                     <Text style={[typography.caption, { color: '#fff', opacity: 0.65 }]}>{item.label}</Text>
@@ -356,7 +104,7 @@ export function PaiementsScreen() {
         <View style={{ paddingHorizontal: spacing.lg }}>
           <SectionHeader title={lang === 'mg' ? 'Tantara' : 'Historique'} />
           <Card padding={0} style={{ overflow: 'hidden' }}>
-            {PAIEMENTS_DATA.map((item, index) => (
+            {data.map((item, index) => (
               <TouchableOpacity
                 key={item.id}
                 activeOpacity={0.75}
@@ -364,7 +112,7 @@ export function PaiementsScreen() {
                   styles.payRow,
                   {
                     borderBottomColor: theme.border,
-                    borderBottomWidth: index < PAIEMENTS_DATA.length - 1 ? StyleSheet.hairlineWidth : 0,
+                    borderBottomWidth: index < data.length - 1 ? StyleSheet.hairlineWidth : 0,
                   },
                 ]}
               >
@@ -373,7 +121,7 @@ export function PaiementsScreen() {
                 </View>
                 <View style={{ flex: 1, marginLeft: spacing.md }}>
                   <Text style={[typography.body, { color: theme.textPrimary, fontWeight: '600' }]} numberOfLines={1}>
-                    {item.type || item.motif || '—'}
+                    {item.type_paiement || '—'}
                   </Text>
                   <Text style={[typography.caption, { color: theme.textMuted, marginTop: 2 }]}>{item.citoyen?.nom || item.citoyen_nom || '—'} · {item.date_transaction ? new Date(item.date_transaction).toLocaleDateString('fr-FR') : '—'}</Text>
                 </View>
@@ -510,7 +258,7 @@ export function ParametresScreen() {
             <Card padding={0} style={{ overflow: 'hidden' }}>
               <SettingRow icon={Bell}     label={tr('parametres', 'notifications')} />
               <SettingRow icon={Shield}   label={tr('parametres', 'securite')} />
-              <SettingRow icon={RefreshCw} label={tr('parametres', 'syncManuelle')} color={theme.info} />
+
               <SettingRow icon={Info}     label={tr('parametres', 'apropos')}
                 right={
                   <Text style={[typography.caption, { color: theme.textMuted }]}>v1.0.2</Text>
@@ -520,12 +268,13 @@ export function ParametresScreen() {
             </Card>
           </View>
 
+          <SyncPanel details/>
           {/* Déconnexion */}
           <Button
             label={tr('parametres', 'deconnecter')}
             variant="danger"
             icon={<LogOut size={18} color={theme.danger} />}
-            onPress={logout}
+            onPress={()=>Alert.alert('Déconnexion', 'Le cache et les saisies non transmises de ce compte seront effacés de cet appareil.', [{text:'Annuler',style:'cancel'},{text:'Déconnecter',style:'destructive',onPress:()=>logout().catch(e=>Alert.alert('Déconnexion impossible',e.message))}])}
           />
 
         </View>

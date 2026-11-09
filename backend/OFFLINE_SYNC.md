@@ -1,6 +1,6 @@
 # Synchronisation backend des citoyens et actes
 
-L'API propose désormais le dépôt d'opérations (`POST /api/sync/`) et la lecture des changements (`GET /api/sync/citoyen`, `GET /api/sync/acte`). Elle nécessite un jeton agent. La file persistante, le stockage local et le déclenchement automatique dans l'application mobile restent à intégrer : la présence de cette API ne rend pas encore l'application utilisable hors connexion.
+L'API propose désormais le dépôt d'opérations (`POST /api/sync/`) et la lecture des changements (`GET /api/sync/citoyen`, `GET /api/sync/acte`). Elle nécessite un jeton agent. Le mobile est désormais raccordé à cette API avec cache chiffré, file persistante et reprise automatique. Voir [le guide mobile](../mobile/README.md). Les tests JavaScript et l’intégration API sont automatisés ; la validation sur téléphone reste à effectuer.
 
 ## Déposer une opération
 
