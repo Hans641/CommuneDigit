@@ -200,6 +200,22 @@ export const citoyenEspaceAPI = {
     }
     return res.json();
   },
+  downloadDocument: async (id) => {
+    const token = localStorage.getItem('cd_citoyen_token');
+    const res = await fetch(`${CITOYEN_PREFIX}/demandes/${id}/document`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Téléchargement impossible');
+    }
+    const url = URL.createObjectURL(await res.blob());
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `document-${id}.html`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
   deleteUpload: (pieceId) => citoyenReq('DELETE', `/upload/${pieceId}`),
 };
 

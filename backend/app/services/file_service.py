@@ -64,11 +64,13 @@ class FileService:
     @staticmethod
     def get_file_path(url: str) -> Optional[Path]:
         """Récupère le chemin physique d'un fichier uploadé."""
-        rel_path = url.lstrip("/uploads/")
+        if not url.startswith("/uploads/"):
+            return None
+        rel_path = url.removeprefix("/uploads/")
         file_path = UPLOAD_DIR / rel_path
         try:
             file_path.resolve().relative_to(UPLOAD_DIR.resolve())
-            if file_path.exists():
+            if file_path.is_file():
                 return file_path
         except (ValueError, FileNotFoundError):
             pass

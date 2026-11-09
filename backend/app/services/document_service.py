@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Tuple
 from io import BytesIO
+from html import escape
 
 from sqlalchemy.orm import Session
 
@@ -38,6 +39,20 @@ class DocumentGenerationService:
         Pour l'MVP, générer un HTML simple.
         """
         
+        # Escape citizen and agent content before embedding it in downloadable HTML.
+        class SafeView:
+            def __init__(self, value):
+                self.value = value
+            def __bool__(self):
+                return bool(self.value)
+            def __getattr__(self, name):
+                value = getattr(self.value, name, None)
+                if isinstance(value, str):
+                    return escape(value)
+                if value is None or isinstance(value, (int, float, datetime)):
+                    return value
+                return SafeView(value)
+        demande = SafeView(demande)
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -86,7 +101,7 @@ class DocumentGenerationService:
                 <div class="field">
                     <div class="field-label">Demandeur:</div>
                     <div class="field-value">
-                        {demande.citoyen.prenom} {demande.citoyen.nom if demande.citoyen else 'N/A'}
+                        {demande.citoyen.prenom if demande.citoyen else ''} {demande.citoyen.nom if demande.citoyen else 'N/A'}
                     </div>
                 </div>
                 
@@ -194,6 +209,8 @@ class DocumentGenerationService:
             existing.hash_sha256 = content_hash
             existing.taille_bytes = len(content)
             existing.date_generation = datetime.utcnow()
+            existing.expires_at = datetime.utcnow() + timedelta(days=DOCUMENT_VALIDITY_DAYS)
+            existing.agent_id = agent_id
         else:
             doc = DocumentFinal(
                 demande_id=demande.id,
@@ -207,9 +224,6 @@ class DocumentGenerationService:
             )
             db.add(doc)
         
-        db.commit()
-        
-        # Mettre à jour la demande
         demande.document_final = url
         db.commit()
         
@@ -233,12 +247,14 @@ class DocumentGenerationService:
     def get_document_file(url: str) -> Optional[Path]:
         """Récupère le chemin physique d'un document."""
         
-        rel_path = url.lstrip("/documents/")
+        if not url.startswith("/documents/"):
+            return None
+        rel_path = url.removeprefix("/documents/")
         file_path = DOCUMENTS_DIR / rel_path
         
         try:
             file_path.resolve().relative_to(DOCUMENTS_DIR.resolve())
-            if file_path.exists():
+            if file_path.is_file():
                 return file_path
         except (ValueError, FileNotFoundError):
             pass
@@ -265,12 +281,6 @@ class DocumentGenerationService:
         
         return False
 
-    @staticmethod
-    def is_document_valid(doc: DocumentFinal) -> bool:
-        """Vérifie si un document est encore valable."""
-        if doc.expires_at:
-            return datetime.utcnow() <= doc.expires_at
-        return True
 
 
 # Fonction utilitaire d'événement

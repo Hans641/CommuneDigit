@@ -17,7 +17,7 @@ from app.core.config import get_db
 from app.core.security import create_access_token, verify_password, hash_password, decode_token
 from app.models.models import (
     CompteCitoyen, Citoyen, Fokontany,
-    CatalogueService, DemandeService, ProjetCommune, Alerte, Notification, PieceJointe, DocumentFinal
+    CatalogueService, DemandeService, ProjetCommune, Alerte, Notification, FichierCitoyen, DocumentFinal, EvenementDemande
 )
 from app.services.file_service import FileService
 from app.services.notification_service import NotificationService
@@ -39,8 +39,12 @@ def get_current_citoyen(
     payload = decode_token(token)
     if not payload or payload.get("type") != "citoyen":
         raise exc
+    try:
+        compte_id = int(payload.get("sub"))
+    except (TypeError, ValueError):
+        raise exc
     compte = db.query(CompteCitoyen).filter(
-        CompteCitoyen.id == int(payload["sub"]),
+        CompteCitoyen.id == compte_id,
         CompteCitoyen.is_active == True
     ).first()
     if not compte:
@@ -91,7 +95,7 @@ class ChangePasswordRequest(BaseModel):
 @router.post("/inscription", status_code=201, summary="Inscription d'un nouveau citoyen")
 def inscription(body: RegisterRequest, db: Session = Depends(get_db)):
     # Email unique
-    if db.query(CompteCitoyen).filter(CompteCitoyen.email == body.email).first():
+    if db.query(CompteCitoyen).filter(CompteCitoyen.email == body.email.strip().lower()).first():
         raise HTTPException(400, "Un compte existe déjà avec cet email")
 
     # Créer la fiche Citoyen
@@ -108,7 +112,7 @@ def inscription(body: RegisterRequest, db: Session = Depends(get_db)):
 
     # Créer le compte auth
     compte = CompteCitoyen(
-        email=body.email.lower(),
+        email=body.email.strip().lower(),
         hashed_password=hash_password(body.password),
         citoyen_id=citoyen.id,
         is_verified=True,   # Vérification email optionnelle en prod
@@ -256,7 +260,7 @@ def creer_demande(
     compte: CompteCitoyen = Depends(get_current_citoyen),
     db: Session = Depends(get_db),
 ):
-    svc = db.query(CatalogueService).filter(CatalogueService.code == body.service_code).first()
+    svc = db.query(CatalogueService).filter(CatalogueService.code == body.service_code, CatalogueService.is_active == True).first()
     if not svc:
         raise HTTPException(404, "Service non trouvé dans le catalogue")
 
@@ -277,6 +281,24 @@ def creer_demande(
                     detail=detail_message
                 )
 
+    uploads = []
+    for piece in body.pieces_jointes or []:
+        upload = db.query(FichierCitoyen).filter(
+            FichierCitoyen.compte_id == compte.id,
+            FichierCitoyen.url_fichier == piece.get("url"),
+            FichierCitoyen.demande_id.is_(None),
+        ).first()
+        if upload:
+            uploads.append(upload)
+            continue
+        source = db.query(DemandeService).filter(
+            DemandeService.compte_id == compte.id,
+            DemandeService.document_final == piece.get("url"),
+            DemandeService.statut.in_(["Approuvée", "Prête"]),
+        ).first() if piece.get("url") else None
+        if not source:
+            raise HTTPException(422, "Pièce jointe inexistante ou non autorisée")
+
     demande = DemandeService(
         reference=gen_ref_demande(),
         compte_id=compte.id,
@@ -289,6 +311,12 @@ def creer_demande(
         soumise_at=datetime.utcnow(),
     )
     db.add(demande)
+    db.flush()
+    db.add(EvenementDemande(
+        demande_id=demande.id, type_event="SOUMISSION", nouveau_statut="Soumise",
+    ))
+    for upload in uploads:
+        upload.demande_id = demande.id
     db.commit()
     db.refresh(demande)
     
@@ -299,9 +327,11 @@ def creer_demande(
             compte_citoyen=compte,
             type_notif="CREATION",
             demande=demande,
-            via_email=True,
-            via_sms=True,
-            via_push=True,
+            service=svc.nom,
+            reference=demande.reference,
+            via_email=False,
+            via_sms=False,
+            via_push=False,
         )
     except Exception as e:
         # Log l'erreur mais ne pas échouer la soumission
@@ -311,7 +341,7 @@ def creer_demande(
         "reference": demande.reference,
         "statut": demande.statut,
         "montant_ar": demande.montant_ar,
-        "message": "Demande soumise avec succès. Vous serez notifié par SMS."
+        "message": "Demande soumise avec succès. Le suivi est disponible dans votre espace citoyen."
     }
 
 
@@ -443,9 +473,14 @@ async def upload_file(
     Télécharge un fichier (document, justificatif, pièce jointe).
     Valide le type MIME et la taille.
     """
+    linked_demande = db.query(DemandeService).filter(DemandeService.id == demande_id).first()
+    if linked_demande and linked_demande.compte_id != compte.id:
+        raise HTTPException(404, "Demande introuvable")
+    # A client-generated draft ID is only a staging label, never a filesystem path.
+    storage_id = str(uuid.uuid4())
     try:
         # Lire le contenu du fichier
-        contents = await file.read()
+        contents = await file.read(10 * 1024 * 1024 + 1)
         
         # Valider le fichier
         FileService.validate_file(file.filename, len(contents), file.content_type)
@@ -454,13 +489,13 @@ async def upload_file(
         file_url, sha256 = FileService.save_upload(
             file_content=contents,
             original_filename=file.filename,
-            demande_id=demande_id or str(compte.id),
+            demande_id=storage_id,
             user_id=compte.id
         )
         
-        # Créer un enregistrement PieceJointe
-        piece = PieceJointe(
-            demande_id=demande_id,
+        # Créer un enregistrement FichierCitoyen
+        piece = FichierCitoyen(
+            demande_id=linked_demande.id if linked_demande else None,
             compte_id=compte.id,
             nom_fichier=file.filename,
             type_code=file.content_type,
@@ -476,7 +511,7 @@ async def upload_file(
         
         return {
             "id": piece.id,
-            "nom": piece.nom,
+            "nom": piece.nom_fichier,
             "url": file_url,
             "type": file.content_type,
             "taille": FileService.format_file_size(len(contents)),
@@ -495,16 +530,19 @@ def delete_upload(
     db: Session = Depends(get_db),
 ):
     """Supprime un fichier téléchargé (avant soumission)."""
-    piece = db.query(PieceJointe).filter(
-        PieceJointe.id == piece_id,
-        PieceJointe.compte_id == compte.id,
+    piece = db.query(FichierCitoyen).filter(
+        FichierCitoyen.id == piece_id,
+        FichierCitoyen.compte_id == compte.id,
     ).first()
     if not piece:
         raise HTTPException(404, "Fichier introuvable")
     
+    if piece.demande_id:
+        raise HTTPException(409, "Cette pièce est liée à une demande soumise")
+
     # Supprimer du disque
     try:
-        FileService.delete_file(piece.url)
+        FileService.delete_file(piece.url_fichier)
     except Exception:
         pass  # Ignorer si le fichier physique n'existe pas
     
@@ -524,9 +562,9 @@ def get_file(
     db: Session = Depends(get_db),
 ):
     """Récupère le chemin d'un fichier (pour téléchargement côté client)."""
-    piece = db.query(PieceJointe).filter(
-        PieceJointe.id == piece_id,
-        PieceJointe.compte_id == compte.id,
+    piece = db.query(FichierCitoyen).filter(
+        FichierCitoyen.id == piece_id,
+        FichierCitoyen.compte_id == compte.id,
     ).first()
     if not piece:
         raise HTTPException(404, "Fichier introuvable")
@@ -672,7 +710,7 @@ def generate_document(
     if not d:
         raise HTTPException(404, "Demande introuvable")
     
-    if d.statut not in ["Approuvée", "Prête à retirer", "Paiement complété"]:
+    if d.statut not in ["Approuvée", "Prête"]:
         raise HTTPException(
             400,
             f"Document ne peut être généré que pour les demandes approuvées (statut actuel: {d.statut})"
@@ -686,11 +724,13 @@ def generate_document(
             agent_id=None,
         )
         
+        if doc is None:
+            raise RuntimeError("Échec du stockage du document")
         return {
             "id": doc.id,
-            "url": doc.url,
+            "url": doc.url_telechargement,
             "created_at": doc.created_at.isoformat(),
-            "expires_at": doc.date_expiration.isoformat() if doc.date_expiration else None,
+            "expires_at": doc.expires_at.isoformat() if doc.expires_at else None,
             "message": "Document généré avec succès",
         }
     except Exception as e:
@@ -790,3 +830,19 @@ def reset_password(
     db.commit()
     
     return {"message": "Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter."}
+
+
+@router.get("/demandes/{demande_id}/historique", summary="Historique de ma demande")
+def historique_demande(
+    demande_id: str,
+    compte: CompteCitoyen = Depends(get_current_citoyen),
+    db: Session = Depends(get_db),
+):
+    demande = db.query(DemandeService).filter(
+        DemandeService.id == demande_id, DemandeService.compte_id == compte.id,
+    ).first()
+    if not demande:
+        raise HTTPException(404, "Demande introuvable")
+    return db.query(EvenementDemande).filter(
+        EvenementDemande.demande_id == demande_id,
+    ).order_by(EvenementDemande.timestamp, EvenementDemande.id).all()

@@ -433,3 +433,19 @@ class EvenementDemande(Base):
 
     demande          = relationship("DemandeService")
     agent            = relationship("Agent")
+
+
+class FichierCitoyen(Base):
+    """Uploads owned by a citizen, including files staged before submission."""
+    __tablename__ = "fichiers_citoyens"
+    id = Column(String(36), primary_key=True, default=new_uuid)
+    compte_id = Column(Integer, ForeignKey("comptes_citoyens.id"), nullable=False, index=True)
+    demande_id = Column(String(36), ForeignKey("demandes_service.id"), nullable=True)
+    nom_fichier = Column(String(300), nullable=False)
+    type_code = Column(String(100), nullable=False)
+    url_fichier = Column(String(500), nullable=False)
+    mime_type = Column(String(100))
+    taille_bytes = Column(Integer)
+    hash_sha256 = Column(String(64))
+    obtenu_ici = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

@@ -16,7 +16,7 @@ from app.core.deps import get_current_agent, get_client_ip, require_role
 from app.core.security import hash_password, hash_record
 from app.models.models import (
     Agent, Alerte, AuditLog, Certificat, DemandePub,
-    Fokontany, Transaction, Citoyen, ActeEtatCivil
+    Fokontany, Transaction, Citoyen, ActeEtatCivil, EvenementDemande
 )
 from app.schemas.schemas import (
     AgentCreate, AgentOut, AgentUpdate,
@@ -547,6 +547,12 @@ def traiter_demande(
         raise HTTPException(422, f"Statut invalide. Valeurs : {VALID}")
 
     ancien_statut = d.statut
+    if ancien_statut != body.statut:
+        db.add(EvenementDemande(
+            demande_id=d.id, type_event="TRANSITION_STATUT",
+            ancien_statut=ancien_statut, nouveau_statut=body.statut,
+            agent_id=current.id, description=body.note_agent,
+        ))
     d.statut      = body.statut
     d.agent_id    = current.id
     if body.note_agent:
@@ -585,3 +591,25 @@ def stats_demandes(
     traitement= db.query(func.count(DemandeSvc.id)).filter(DemandeSvc.statut == "En traitement").scalar() or 0
     pretes    = db.query(func.count(DemandeSvc.id)).filter(DemandeSvc.statut == "Prête").scalar() or 0
     return {"total": total, "soumises": soumises, "en_traitement": traitement, "pretes": pretes}
+
+
+@router_demandes.get("/{demande_id}/pieces/{index}")
+def telecharger_piece_agent(
+    demande_id: str,
+    index: int,
+    db: Session = Depends(get_db),
+    current: Agent = Depends(get_current_agent),
+):
+    from fastapi.responses import FileResponse
+    from app.services.file_service import FileService
+
+    demande = db.query(DemandeSvc).filter(DemandeSvc.id == demande_id).first()
+    if not demande or index < 0 or index >= len(demande.pieces_jointes or []):
+        raise HTTPException(404, "Pièce jointe introuvable")
+    piece = demande.pieces_jointes[index]
+    url = piece.get("url", "")
+    path = (FileService.get_file_path(url) if url.startswith("/uploads/")
+            else DocumentGenerationService.get_document_file(url))
+    if not path:
+        raise HTTPException(404, "Fichier introuvable")
+    return FileResponse(path, media_type="application/octet-stream", filename=path.name)

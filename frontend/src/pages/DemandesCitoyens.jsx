@@ -223,7 +223,17 @@ export default function DemandesCitoyens() {
                       {pj.obtenu_ici && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}> (obtenu via portail)</span>}
                     </span>
                     {pj.url && !pj.url.startsWith('demande:') && (
-                      <a href={pj.url} target="_blank" rel="noopener noreferrer" className="btn btn-glass btn-sm" style={{ fontSize: '0.72rem', padding: '3px 10px' }}>Voir</a>
+                      <button className="btn btn-glass btn-sm" style={{ fontSize: '0.72rem', padding: '3px 10px' }} onClick={async () => {
+                        try {
+                          const res = await api.get(`/demandes-citoyens/${selected.id}/pieces/${i}`, { responseType: 'blob' });
+                          const url = URL.createObjectURL(res.data);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = pj.nom || 'justificatif';
+                          link.click();
+                          setTimeout(() => URL.revokeObjectURL(url), 1000);
+                        } catch { window.alert('Téléchargement du justificatif impossible'); }
+                      }}>Télécharger</button>
                     )}
                   </div>
                 ))}
