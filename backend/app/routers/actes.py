@@ -8,10 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.config import get_db
-from app.core.deps import get_current_agent, get_client_ip
+from app.core.deps import get_current_agent, get_client_ip, require_role
 from app.core.security import hash_record
 from app.models.models import ActeEtatCivil, Agent
 from app.schemas.schemas import ActeCreate, ActeOut, ActeUpdate
+from app.services.request_policy import OPERATORS, APPROVERS
 from app.services.audit_service import log_action
 from app.services.ref_service import gen_reference
 
@@ -43,7 +44,7 @@ def create_acte(
     body:    ActeCreate,
     request: Request,
     db:      Session = Depends(get_db),
-    current: Agent = Depends(get_current_agent),
+    current: Agent = Depends(require_role(*OPERATORS)),
 ):
     # Générer référence unique
     reference = gen_reference("EC")
@@ -97,12 +98,14 @@ def update_acte(
     body:    ActeUpdate,
     request: Request,
     db:      Session = Depends(get_db),
-    current: Agent = Depends(get_current_agent),
+    current: Agent = Depends(require_role(*OPERATORS)),
 ):
     acte = db.query(ActeEtatCivil).filter(ActeEtatCivil.id == acte_id).first()
     if not acte:
         raise HTTPException(status_code=404, detail="Acte introuvable")
 
+    if (body.statut is not None or body.is_validated is not None) and current.role not in APPROVERS:
+        raise HTTPException(403, "Validation réservée aux responsables")
     updates = body.model_dump(exclude_none=True)
     for field, val in updates.items():
         setattr(acte, field, val)
@@ -135,7 +138,7 @@ def valider_acte(
     acte_id: str,
     request: Request,
     db:      Session = Depends(get_db),
-    current: Agent = Depends(get_current_agent),
+    current: Agent = Depends(require_role(*APPROVERS)),
 ):
     acte = db.query(ActeEtatCivil).filter(ActeEtatCivil.id == acte_id).first()
     if not acte:

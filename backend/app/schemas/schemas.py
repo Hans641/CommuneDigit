@@ -186,7 +186,7 @@ class CertificatOut(BaseModel):
 class TransactionCreate(BaseModel):
     citoyen_id:        Optional[str] = None
     type_paiement:     str = Field(..., min_length=1)
-    montant:           float = Field(..., gt=0)
+    montant:           float = Field(..., gt=0, allow_inf_nan=False)
     idempotency_key:   str = Field(..., min_length=10)
     reference_externe: Optional[str] = None
 

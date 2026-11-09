@@ -449,3 +449,11 @@ class FichierCitoyen(Base):
     hash_sha256 = Column(String(64))
     obtenu_ici = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PaiementDemande(Base):
+    """One confirmed ledger entry can settle exactly one citizen request."""
+    __tablename__ = "paiements_demandes"
+    transaction_id = Column(String(36), ForeignKey("transactions.id"), primary_key=True)
+    demande_id = Column(String(36), ForeignKey("demandes_service.id"), nullable=False, unique=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

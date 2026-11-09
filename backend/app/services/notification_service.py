@@ -67,6 +67,7 @@ class NotificationService:
         via_sms: bool = True,
         via_push: bool = False,
         custom_message: str = None,
+        commit: bool = True,
         **template_vars
     ) -> Notification:
         """Crée et enregistre une notification."""
@@ -97,6 +98,8 @@ class NotificationService:
         # Déclencher l'envoi (async en production)
         NotificationService.send_notification(db, notif, compte_citoyen)
         
+        if commit:
+            db.commit()
         return notif
 
     @staticmethod
@@ -121,7 +124,7 @@ class NotificationService:
             # notif.push_id = push_id
             pass
         
-        db.commit()
+        db.flush()
 
     @staticmethod
     def get_notifications(
@@ -186,37 +189,38 @@ def notify_on_demande_transition(
     demande: DemandeService,
     ancien_statut: str,
     nouveau_statut: str,
+    commit: bool = True,
 ):
     """Notifie automatiquement lors d'une transition de statut."""
     
     if nouveau_statut == "Soumise":
         NotificationService.create_notification(
             db, demande.compte, TypeNotification.SOUMISSION,
-            demande=demande,
+            demande=demande, commit=commit,
             service=demande.service.nom if demande.service else "un document",
             reference=demande.reference,
         )
     
     elif nouveau_statut == "En traitement":
         NotificationService.create_notification(
-            db, demande.compte, TypeNotification.TRAITEMENT, demande=demande
+            db, demande.compte, TypeNotification.TRAITEMENT, demande=demande, commit=commit
         )
     
     elif nouveau_statut == "Approuvée":
         NotificationService.create_notification(
-            db, demande.compte, TypeNotification.APPROBATION, demande=demande
+            db, demande.compte, TypeNotification.APPROBATION, demande=demande, commit=commit
         )
     
     elif nouveau_statut == "Rejetée":
         NotificationService.create_notification(
             db, demande.compte, TypeNotification.REJET,
-            demande=demande,
+            demande=demande, commit=commit,
             note=demande.note_agent or "Veuillez réessayer",
         )
     
     elif nouveau_statut == "Prête":
         NotificationService.create_notification(
             db, demande.compte, TypeNotification.PRET,
-            demande=demande,
+            demande=demande, commit=commit,
             service=demande.service.nom if demande.service else "votre document",
         )

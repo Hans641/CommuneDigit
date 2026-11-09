@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
 from app.core.config import get_db
 from app.core.deps import get_current_agent, get_client_ip, require_role
@@ -28,6 +29,7 @@ from app.schemas.schemas import (
     SyncRequest, SyncResponse,
     TransactionCreate, TransactionOut,
 )
+from app.services.request_policy import scoped_requests, validate_transition, OPERATORS, APPROVERS
 from app.services.audit_service import log_action
 from app.services.ref_service import gen_matricule, gen_reference, gen_idempotency_key
 
@@ -53,34 +55,43 @@ def list_transactions(
 @router_txn.post("/", response_model=TransactionOut, status_code=201)
 def create_transaction(
     body: TransactionCreate, request: Request,
-    db: Session = Depends(get_db), current: Agent = Depends(get_current_agent),
+    db: Session = Depends(get_db), current: Agent = Depends(require_role(*APPROVERS)),
 ):
-    # Idempotence — évite les doublons de paiement
-    existing = db.query(Transaction).filter(
-        Transaction.idempotency_key == body.idempotency_key
-    ).first()
-    if existing:
-        return existing  # Retourne l'existante sans erreur
+    def same_transaction(txn):
+        return (txn.citoyen_id == body.citoyen_id and txn.montant == body.montant
+                and txn.type_paiement == body.type_paiement
+                and txn.reference_externe == body.reference_externe)
 
+    existing = db.query(Transaction).filter(Transaction.idempotency_key == body.idempotency_key).first()
+    if existing:
+        if not same_transaction(existing):
+            raise HTTPException(409, "Clé d'idempotence utilisée avec un autre contenu")
+        return existing
+    if body.citoyen_id and not db.get(Citoyen, body.citoyen_id):
+        raise HTTPException(422, "Citoyen introuvable")
     txn = Transaction(
-        reference=gen_reference("TXN"),
-        citoyen_id=body.citoyen_id,
-        agent_id=current.id,
-        type_paiement=body.type_paiement,
-        montant=body.montant,
-        idempotency_key=body.idempotency_key,
-        reference_externe=body.reference_externe,
+        reference=gen_reference("TXN"), citoyen_id=body.citoyen_id, agent_id=current.id,
+        type_paiement=body.type_paiement, montant=body.montant,
+        idempotency_key=body.idempotency_key, reference_externe=body.reference_externe,
         statut="Confirmé",
     )
-    db.add(txn)
-    db.commit()
+    try:
+        db.add(txn)
+        db.flush()
+        log_action(
+            db, action="VALIDATE", entite="Transaction", entite_id=txn.id,
+            detail=f"Encaissement manuel — {txn.montant} Ar — {txn.reference}",
+            agent_id=current.id, ip_address=get_client_ip(request), niveau_risque="Moyen",
+            commit=False,
+        )
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = db.query(Transaction).filter(Transaction.idempotency_key == body.idempotency_key).first()
+        if existing and same_transaction(existing):
+            return existing
+        raise HTTPException(409, "Encaissement concurrent ou clé déjà utilisée")
     db.refresh(txn)
-
-    log_action(
-        db, action="VALIDATE", entite="Transaction", entite_id=txn.id,
-        detail=f"Paiement {body.type_paiement} — {body.montant} Ar — {txn.reference}",
-        agent_id=current.id, ip_address=get_client_ip(request), niveau_risque="Moyen",
-    )
     return txn
 
 
@@ -118,7 +129,7 @@ def list_certificats(
 @router_cert.post("/", response_model=CertificatOut, status_code=201)
 def create_certificat(
     body: CertificatCreate, request: Request,
-    db: Session = Depends(get_db), current: Agent = Depends(get_current_agent),
+    db: Session = Depends(get_db), current: Agent = Depends(require_role(*OPERATORS)),
 ):
     prix = body.prix if body.prix > 0 else TARIFS_CERT.get(body.type_cert, 0)
     cert = Certificat(
@@ -145,11 +156,13 @@ def create_certificat(
 @router_cert.patch("/{cert_id}", response_model=CertificatOut)
 def update_certificat(
     cert_id: str, body: CertificatUpdate, request: Request,
-    db: Session = Depends(get_db), current: Agent = Depends(get_current_agent),
+    db: Session = Depends(get_db), current: Agent = Depends(require_role(*OPERATORS)),
 ):
     cert = db.query(Certificat).filter(Certificat.id == cert_id).first()
     if not cert:
         raise HTTPException(status_code=404, detail="Certificat introuvable")
+    if body.statut is not None and current.role not in APPROVERS:
+        raise HTTPException(403, "Changement de statut réservé aux responsables")
     for k, v in body.model_dump(exclude_none=True).items():
         setattr(cert, k, v)
     cert.updated_at = datetime.utcnow()
@@ -163,7 +176,7 @@ def update_certificat(
 @router_cert.post("/{cert_id}/delivrer", response_model=CertificatOut)
 def delivrer(
     cert_id: str, request: Request,
-    db: Session = Depends(get_db), current: Agent = Depends(get_current_agent),
+    db: Session = Depends(get_db), current: Agent = Depends(require_role(*APPROVERS)),
 ):
     cert = db.query(Certificat).filter(Certificat.id == cert_id).first()
     if not cert:
@@ -197,7 +210,7 @@ def list_alertes(
 @router_alertes.post("/", response_model=AlerteOut, status_code=201)
 def create_alerte(
     body: AlerteCreate, request: Request,
-    db: Session = Depends(get_db), current: Agent = Depends(get_current_agent),
+    db: Session = Depends(get_db), current: Agent = Depends(require_role(*OPERATORS)),
 ):
     alerte = Alerte(**body.model_dump(), created_by=current.id)
     db.add(alerte)
@@ -211,7 +224,7 @@ def create_alerte(
 
 @router_alertes.patch("/{alerte_id}/desactiver")
 def desactiver_alerte(
-    alerte_id: int, db: Session = Depends(get_db), current: Agent = Depends(get_current_agent),
+    alerte_id: int, db: Session = Depends(get_db), current: Agent = Depends(require_role(*OPERATORS)),
 ):
     alerte = db.query(Alerte).filter(Alerte.id == alerte_id).first()
     if not alerte:
@@ -225,7 +238,7 @@ def desactiver_alerte(
 #  AGENTS (admin only)
 # ══════════════════════════════════════════════════════
 router_agents = APIRouter(prefix="/agents", tags=["Agents"])
-ADMIN_ROLES = ("Administrateur", "Ministère MID")
+ADMIN_ROLES = ("Administrateur",)
 
 
 @router_agents.get("/", response_model=List[AgentOut])
@@ -378,7 +391,7 @@ router_sync = APIRouter(prefix="/sync", tags=["Synchronisation"])
 @router_sync.post("/", response_model=SyncResponse)
 def sync_data(
     body: SyncRequest, request: Request,
-    db: Session = Depends(get_db), current: Agent = Depends(get_current_agent),
+    db: Session = Depends(get_db), current: Agent = Depends(require_role(*OPERATORS)),
 ):
     """
     Endpoint de synchronisation offline-first.
@@ -503,7 +516,7 @@ def list_demandes_agent(
     db: Session = Depends(get_db),
     current: Agent = Depends(get_current_agent),
 ):
-    q = db.query(DemandeSvc)
+    q = scoped_requests(db, current)
     if statut:       q = q.filter(DemandeSvc.statut == statut)
     if service_code: q = q.filter(DemandeSvc.service_code == service_code)
     demandes = q.order_by(DemandeSvc.created_at.desc()).offset(skip).limit(limit).all()
@@ -537,59 +550,49 @@ def traiter_demande(
     demande_id: str,
     body: TraitementBody,
     db: Session = Depends(get_db),
-    current: Agent = Depends(get_current_agent),
+    current: Agent = Depends(require_role(*OPERATORS)),
 ):
-    d = db.query(DemandeSvc).filter(DemandeSvc.id == demande_id).first()
+    d = scoped_requests(db, current).filter(DemandeSvc.id == demande_id).with_for_update().first()
     if not d:
         raise HTTPException(404, "Demande introuvable")
-    VALID = ["En traitement", "Approuvée", "Rejetée", "Prête"]
-    if body.statut not in VALID:
-        raise HTTPException(422, f"Statut invalide. Valeurs : {VALID}")
-
-    ancien_statut = d.statut
-    if ancien_statut != body.statut:
-        db.add(EvenementDemande(
-            demande_id=d.id, type_event="TRANSITION_STATUT",
-            ancien_statut=ancien_statut, nouveau_statut=body.statut,
-            agent_id=current.id, description=body.note_agent,
-        ))
-    d.statut      = body.statut
-    d.agent_id    = current.id
-    if body.note_agent:
-        d.note_agent = body.note_agent
+    validate_transition(d, body.statut, current)
     if body.document_final:
-        d.document_final = body.document_final
-
-    db.commit()
-
-    if ancien_statut != d.statut:
-        try:
-            notify_on_demande_transition(db, d, ancien_statut, d.statut)
-        except Exception as exc:
-            print(f"Erreur notification transition statut: {exc}")
-
-    if not body.document_final and d.statut in ["Approuvée", "Prête"]:
-        try:
-            doc = DocumentGenerationService.create_or_update_document(db, d, agent_id=current.id)
-            if doc and not d.document_final:
-                d.document_final = doc.url_telechargement
-                db.commit()
-        except Exception as exc:
-            print(f"Erreur génération document automatique: {exc}")
-
+        raise HTTPException(422, "Le document final doit être généré par le serveur")
+    ancien_statut = d.statut
+    if ancien_statut == body.statut:
+        return {"message": "Statut inchangé", "statut": d.statut, "reference": d.reference}
+    try:
+        d.statut = body.statut
+        d.agent_id = current.id
+        if body.note_agent is not None:
+            d.note_agent = body.note_agent
+        db.add(EvenementDemande(
+            demande_id=d.id, type_event="TRANSITION_STATUT", ancien_statut=ancien_statut,
+            nouveau_statut=d.statut, agent_id=current.id, description=body.note_agent,
+        ))
+        if d.statut == "Prête":
+            doc = DocumentGenerationService.create_or_update_document(db, d, agent_id=current.id, commit=False)
+            if doc is None:
+                raise RuntimeError("Stockage du document impossible")
+        notify_on_demande_transition(db, d, ancien_statut, d.statut, commit=False)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(500, "Traitement impossible, aucune transition enregistrée")
     return {"message": "Demande mise à jour", "statut": d.statut, "reference": d.reference}
 
 
 @router_demandes.get("/stats", response_model=dict)
 def stats_demandes(
     db: Session = Depends(get_db),
-    _: Agent = Depends(get_current_agent),
+    current: Agent = Depends(get_current_agent),
 ):
     from sqlalchemy import func
-    total     = db.query(func.count(DemandeSvc.id)).scalar() or 0
-    soumises  = db.query(func.count(DemandeSvc.id)).filter(DemandeSvc.statut == "Soumise").scalar() or 0
-    traitement= db.query(func.count(DemandeSvc.id)).filter(DemandeSvc.statut == "En traitement").scalar() or 0
-    pretes    = db.query(func.count(DemandeSvc.id)).filter(DemandeSvc.statut == "Prête").scalar() or 0
+    query = scoped_requests(db, current)
+    total     = query.with_entities(func.count(DemandeSvc.id)).scalar() or 0
+    soumises  = query.with_entities(func.count(DemandeSvc.id)).filter(DemandeSvc.statut == "Soumise").scalar() or 0
+    traitement= query.with_entities(func.count(DemandeSvc.id)).filter(DemandeSvc.statut == "En traitement").scalar() or 0
+    pretes    = query.with_entities(func.count(DemandeSvc.id)).filter(DemandeSvc.statut == "Prête").scalar() or 0
     return {"total": total, "soumises": soumises, "en_traitement": traitement, "pretes": pretes}
 
 
@@ -603,7 +606,7 @@ def telecharger_piece_agent(
     from fastapi.responses import FileResponse
     from app.services.file_service import FileService
 
-    demande = db.query(DemandeSvc).filter(DemandeSvc.id == demande_id).first()
+    demande = scoped_requests(db, current).filter(DemandeSvc.id == demande_id).first()
     if not demande or index < 0 or index >= len(demande.pieces_jointes or []):
         raise HTTPException(404, "Pièce jointe introuvable")
     piece = demande.pieces_jointes[index]

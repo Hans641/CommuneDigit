@@ -17,8 +17,11 @@ from app.core.config import get_db
 from app.core.security import create_access_token, verify_password, hash_password, decode_token
 from app.models.models import (
     CompteCitoyen, Citoyen, Fokontany,
-    CatalogueService, DemandeService, ProjetCommune, Alerte, Notification, FichierCitoyen, DocumentFinal, EvenementDemande
+    CatalogueService, DemandeService, ProjetCommune, Alerte, Notification, FichierCitoyen, DocumentFinal, EvenementDemande, Transaction, PaiementDemande
 )
+from app.services.request_policy import require_paid
+from sqlalchemy.exc import IntegrityError
+from decimal import Decimal
 from app.services.file_service import FileService
 from app.services.notification_service import NotificationService
 from app.services.document_service import DocumentGenerationService
@@ -75,7 +78,7 @@ class DemandeCreate(BaseModel):
     pieces_jointes: Optional[list] = None   # [{nom, url, type, obtenu_ici}]
 
 class PaiementConfirm(BaseModel):
-    reference_paiement: str
+    reference_paiement: str = Field(..., min_length=1, max_length=100)
     methode: str = "MVola"
 
 class ProfilUpdate(BaseModel):
@@ -421,34 +424,42 @@ def payer_demande(
     d = db.query(DemandeService).filter(
         DemandeService.id == demande_id,
         DemandeService.compte_id == compte.id,
-    ).first()
+    ).with_for_update().first()
     if not d:
         raise HTTPException(404, "Demande introuvable")
-    if d.statut_paiement == "Payé":
-        raise HTTPException(400, "Déjà payé")
-    
-    d.statut_paiement = "Payé"
-    d.reference_paiement = body.reference_paiement
-    if d.statut == "Soumise":
-        d.statut = "En traitement"
-    db.commit()
-    
-    # Créer une notification de paiement confirmé
+    if d.statut == "Rejetée":
+        raise HTTPException(409, "Une demande rejetée ne peut pas être payée")
+    if d.montant_ar <= 0:
+        raise HTTPException(409, "Cette demande est gratuite")
+    txn = db.query(Transaction).filter(
+        Transaction.reference == body.reference_paiement,
+        Transaction.citoyen_id == compte.citoyen_id,
+        Transaction.statut == "Confirmé",
+    ).with_for_update().first()
+    if not txn or Decimal(str(txn.montant)) != Decimal(str(d.montant_ar)):
+        raise HTTPException(409, "Aucun encaissement confirmé correspondant au citoyen et au montant")
+    existing = db.query(PaiementDemande).filter(PaiementDemande.demande_id == d.id).first()
+    if existing:
+        if existing.transaction_id != txn.id:
+            raise HTTPException(409, "Demande déjà réglée avec une autre transaction")
+        return {"message": "Paiement déjà rapproché", "reference": d.reference}
+    if db.get(PaiementDemande, txn.id):
+        raise HTTPException(409, "Transaction déjà affectée à une demande")
     try:
+        db.add(PaiementDemande(transaction_id=txn.id, demande_id=d.id))
+        d.statut_paiement = "Payé"
+        d.reference_paiement = txn.reference
+        db.add(EvenementDemande(demande_id=d.id, type_event="PAIEMENT",
+                               description=f"Encaissement rapproché : {txn.reference}"))
         NotificationService.create_notification(
-            db=db,
-            compte_citoyen=compte,
-            type_notif="PAIEMENT",
-            demande=d,
-            montant=d.montant_ar,
-            via_email=True,
-            via_sms=True,
-            via_push=True,
+            db, compte, "PAIEMENT", demande=d, montant=d.montant_ar,
+            via_email=False, via_sms=False, commit=False,
         )
-    except Exception as e:
-        print(f"Erreur lors de la création de la notification de paiement: {e}")
-    
-    return {"message": "Paiement confirmé", "reference": d.reference}
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Transaction ou demande déjà rapprochée, rechargez le dossier")
+    return {"message": "Paiement vérifié dans le registre des encaissements", "reference": d.reference}
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -675,6 +686,9 @@ def get_document(
     if not d:
         raise HTTPException(404, "Demande introuvable")
     
+    require_paid(d)
+    if d.statut not in ["Approuvée", "Prête"]:
+        raise HTTPException(409, "Demande non approuvée")
     if not d.document_final:
         raise HTTPException(404, "Document non disponible pour cette demande")
     
@@ -716,6 +730,7 @@ def generate_document(
             f"Document ne peut être généré que pour les demandes approuvées (statut actuel: {d.statut})"
         )
     
+    require_paid(d)
     try:
         # Générer et sauvegarder le document
         doc = DocumentGenerationService.create_or_update_document(

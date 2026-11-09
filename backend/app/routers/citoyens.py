@@ -7,9 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.config import get_db
-from app.core.deps import get_current_agent, get_client_ip
+from app.core.deps import get_current_agent, get_client_ip, require_role
 from app.models.models import Agent, Citoyen
 from app.schemas.schemas import CitoyenCreate, CitoyenOut, CitoyenUpdate
+from app.services.request_policy import OPERATORS, APPROVERS
 from app.services.audit_service import log_action
 
 router = APIRouter(prefix="/citoyens", tags=["Citoyens"])
@@ -45,7 +46,7 @@ def create_citoyen(
     body:    CitoyenCreate,
     request: Request,
     db:      Session = Depends(get_db),
-    current: Agent = Depends(get_current_agent),
+    current: Agent = Depends(require_role(*OPERATORS)),
 ):
     # Vérifier unicité CIN
     if body.cin:

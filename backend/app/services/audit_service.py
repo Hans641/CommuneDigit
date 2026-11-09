@@ -19,6 +19,7 @@ def log_action(
     entite_id: Optional[str] = None,
     ip_address: Optional[str] = None,
     niveau_risque: str = "Faible",
+    commit: bool = True,
 ) -> AuditLog:
     """
     Enregistre une action dans le journal d'audit immuable.
@@ -39,6 +40,9 @@ def log_action(
         hash_sha256=entry_hash,
     )
     db.add(log)
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     db.refresh(log)
     return log
