@@ -24,14 +24,18 @@ def get_current_agent(
         headers={"WWW-Authenticate": "Bearer"},
     )
     payload = decode_token(token)
-    if payload is None:
+    if payload is None or payload.get("type") is not None:
         raise credentials_exc
 
     agent_id: int = payload.get("sub")
     if agent_id is None:
         raise credentials_exc
 
-    agent = db.query(Agent).filter(Agent.id == int(agent_id), Agent.is_active == True).first()
+    try:
+        agent_id = int(agent_id)
+    except (ValueError, TypeError):
+        raise credentials_exc
+    agent = db.query(Agent).filter(Agent.id == agent_id, Agent.is_active == True).first()
     if agent is None:
         raise credentials_exc
     return agent

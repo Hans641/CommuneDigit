@@ -254,8 +254,8 @@ app.add_middleware(
 )
 
 # Fichiers uploadés et documents générés servis directement
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
-app.mount("/documents", StaticFiles(directory=str(DOCUMENTS_DIR)), name="documents")
+
+
 
 PREFIX = "/api"
 app.include_router(auth_router,           prefix=PREFIX)

@@ -75,7 +75,10 @@ class NotificationService:
 
         template = NotificationService.TEMPLATES.get(type_notif, {})
         titre = template.get("titre", "Notification")
-        message = template.get("message", "").format(**template_vars) or custom_message or titre
+        if demande:
+            template_vars.setdefault("service", demande.service.nom if demande.service else "Document")
+            template_vars.setdefault("reference", demande.reference)
+        message = custom_message or template.get("message", "").format(**template_vars) or titre
         
         notif = Notification(
             compte_id=compte_citoyen.id,

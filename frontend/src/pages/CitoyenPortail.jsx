@@ -766,9 +766,7 @@ function OngletMesDemandes({ demandes, loading, onRefresh, error }) {
                   </div>
                 )}
                 {d.document_final && (
-                  <a href={d.document_final} download style={{ display: 'block' }}>
-                    <Btn variant="gold" style={{ gap: 8 }}>⬇ Télécharger mon document</Btn>
-                  </a>
+                  <Btn variant="gold" style={{ gap: 8 }} onClick={() => citoyenEspaceAPI.downloadDocument(d.id).catch(e => window.alert(e.message))}>⬇ Télécharger mon document</Btn>
                 )}
               </div>
             )}
