@@ -151,6 +151,8 @@ const citoyenReq = async (method, path, body = null) => {
 };
 
 export const citoyenAuthAPI = {
+  forgotPassword: (email) => citoyenReq('POST', '/forgot-password', { email }),
+  resetPassword: (data) => citoyenReq('POST', '/reset-password', data),
   inscription: async (data) => {
     const res = await citoyenReq('POST', '/inscription', data);
     localStorage.setItem('cd_citoyen_token', res.access_token);

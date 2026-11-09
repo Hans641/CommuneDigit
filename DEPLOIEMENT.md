@@ -21,6 +21,7 @@ pip install -r requirements.txt
 # DEBUG=false
 # SEED_DEMO_ACCOUNTS=false
 # PAYMENT_DEMO_ENABLED=false
+# EMAIL_BACKEND=disabled  # ou smtp avec les paramètres du fournisseur
 # Renseigner DATABASE_URL, ALLOWED_ORIGINS et une SECRET_KEY privée aléatoire.
 # Génération locale de la clé : openssl rand -hex 32
 
@@ -177,3 +178,8 @@ En API : `POST /api/espace-citoyen/demandes/{id}/payer` avec `{"reference_paieme
 ## Mises à jour du schéma
 
 Les nouvelles installations utilisent `alembic upgrade head` depuis `backend`. Les bases existantes non versionnées doivent être sauvegardées puis reprises avec `python -m app.schema adopt`. L’API ne crée plus de tables au démarrage et refuse un schéma non à jour. Voir [le guide des migrations](backend/MIGRATIONS.md) pour la reprise, la validation et les retours arrière.
+
+
+## Récupération du mot de passe
+
+La migration `0004` ajoute les jetons à usage unique et les limites de demandes. En développement, le courrier est enregistré dans un dossier privé. En production, configurer `EMAIL_BACKEND=smtp` et une `PUBLIC_FRONTEND_URL` HTTPS, ou `EMAIL_BACKEND=disabled` pour désactiver le parcours. Le transport fichier est refusé en production. Voir [PASSWORD_RECOVERY.md](backend/PASSWORD_RECOVERY.md). Les anciennes sessions citoyennes devront se reconnecter après cette mise à jour.

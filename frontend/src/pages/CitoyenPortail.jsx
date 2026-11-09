@@ -106,7 +106,7 @@ function PageInscription({ onSuccess, onLogin }) {
     e.preventDefault();
     if (step === 1) {
       if (form.password !== form.confirm) return setErr('Les mots de passe ne correspondent pas');
-      if (form.password.length < 6) return setErr('Mot de passe trop court (min. 6 caractères)');
+      if (form.password.length < 8) return setErr('Mot de passe trop court (min. 8 caractères)');
       setErr(''); setStep(2); return;
     }
     setLoading(true); setErr('');
@@ -158,7 +158,7 @@ function PageInscription({ onSuccess, onLogin }) {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           {step === 1 && <>
             <Input label="Adresse email *" type="email" icon={<Icon name="mail" size={16} />} value={form.email} onChange={f('email')} placeholder="votre@email.mg" required />
-            <Input label="Mot de passe *" type="password" icon={<Icon name="lock" size={16} />} value={form.password} onChange={f('password')} placeholder="Min. 6 caractères" required />
+            <Input label="Mot de passe *" type="password" icon={<Icon name="lock" size={16} />} value={form.password} onChange={f('password')} placeholder="Min. 8 caractères" required />
             <Input label="Confirmer le mot de passe *" type="password" icon={<Icon name="lock" size={16} />} value={form.confirm} onChange={f('confirm')} placeholder="Répétez le mot de passe" required />
           </>}
 
@@ -237,6 +237,7 @@ function PageLogin({ onSuccess, onInscription }) {
           <Input label="Mot de passe" type="password" icon={<Icon name="lock" size={16} />} value={password} onChange={setPassword} placeholder="Votre mot de passe" required />
           {err && <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '10px 14px', color: '#fca5a5', fontSize: '0.85rem' }}>{err}</div>}
           <Btn type="submit" disabled={loading}>{loading ? 'Connexion…' : 'Se connecter →'}</Btn>
+          <a href="/forgot-password">Mot de passe oublié ?</a>
         </form>
       </Glass>
 

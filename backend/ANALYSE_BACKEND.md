@@ -15,7 +15,7 @@ Tests : `python -m pytest tests -q` depuis `backend`. Les tests utilisent une ba
 ## Fonctionnalités encore incomplètes
 
 - Email, SMS et push : les adaptateurs sont des placeholders. Seules les notifications internes sont validées. Un fournisseur et ses paramètres doivent être intégrés pour une livraison réelle.
-- Mot de passe oublié : un token est créé mais aucun email n'est envoyé. Le reset n'a pas encore de mécanisme de consommation unique. Ce parcours ne doit pas être annoncé comme opérationnel.
+- Récupération citoyenne : liens à usage unique, expiration, limitation des demandes, révocation des anciennes sessions et formulaires opérationnels. Courrier privé en développement ; transport SMTP préparé mais livraison réelle à configurer et valider. Voir `PASSWORD_RECOVERY.md`.
 - Paiement : rapprochement obligatoire avec une transaction du registre, confirmée manuellement par un administrateur ou superviseur. La vérification auprès des opérateurs et les webhooks restent à intégrer.
 - Documents : génération HTML, sans PDF ni signature numérique officielle.
 - Traitement agent : transitions strictes, contrôle de paiement avant délivrance, statut/historique/notification enregistrés dans une transaction SQL. Une écriture de fichier ne fait pas partie de cette transaction : un échec ultérieur peut laisser un fichier orphelin privé à nettoyer.
