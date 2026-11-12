@@ -321,26 +321,13 @@ def creer_demande(
     ))
     for upload in uploads:
         upload.demande_id = demande.id
+    NotificationService.create_notification(
+        db, compte, "CREATION", demande=demande, commit=False,
+        service=svc.nom, reference=demande.reference,
+    )
     db.commit()
     db.refresh(demande)
-    
-    # Créer une notification de création
-    try:
-        NotificationService.create_notification(
-            db=db,
-            compte_citoyen=compte,
-            type_notif="CREATION",
-            demande=demande,
-            service=svc.nom,
-            reference=demande.reference,
-            via_email=False,
-            via_sms=False,
-            via_push=False,
-        )
-    except Exception as e:
-        # Log l'erreur mais ne pas échouer la soumission
-        print(f"Erreur lors de la création de la notification: {e}")
-    
+
     return {
         "reference": demande.reference,
         "statut": demande.statut,
@@ -478,7 +465,7 @@ def payer_demande(
                                description=f"{'Simulation démo' if demo else 'Encaissement rapproché'} : {txn.reference}"))
         NotificationService.create_notification(
             db, compte, "PAIEMENT", demande=d, montant=d.montant_ar,
-            via_email=False, via_sms=False, commit=False,
+            via_sms=False, commit=False,
         )
         db.commit()
     except IntegrityError:

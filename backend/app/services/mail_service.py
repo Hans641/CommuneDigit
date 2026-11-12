@@ -8,12 +8,14 @@ from email.message import EmailMessage
 from app.core.config import get_settings
 
 
-def send_email(recipient: str, subject: str, body: str):
+def send_email(recipient: str, subject: str, body: str, *, message_id: str = None):
     settings = get_settings()
     message = EmailMessage()
     message['From'] = settings.email_from
     message['To'] = recipient
     message['Subject'] = subject
+    if message_id:
+        message['Message-ID'] = message_id
     message.set_content(body)
     if settings.email_backend == 'file':
         if settings.app_env == 'production':

@@ -11,7 +11,7 @@ from app.models import models  # register metadata
 
 BACKEND = Path(__file__).resolve().parents[1]
 RESET_TABLES = {'password_resets', 'password_reset_limits'}
-ADDITIONS = {'fichiers_citoyens', 'paiements_demandes', 'sync_receipts', 'sync_changes', 'sync_clock'} | RESET_TABLES
+ADDITIONS = {'fichiers_citoyens', 'paiements_demandes', 'sync_receipts', 'sync_changes', 'sync_clock', 'notification_emails'} | RESET_TABLES
 
 
 def config(connection=None):

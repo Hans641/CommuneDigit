@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     at_sender_id: str = "CommuneDigit"
 
     # Email delivery: private local mailbox in development, SMTP when configured.
+    notification_email_enabled: bool = False
     email_backend: Literal["file", "smtp", "disabled"] = "file"
     email_outbox_dir: str = "/tmp/communedigit-mail"
     email_from: str = "noreply@communedigit.local"
