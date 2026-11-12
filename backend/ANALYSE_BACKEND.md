@@ -14,7 +14,7 @@ Tests : `python -m pytest tests -q` depuis `backend`. Les tests utilisent une ba
 
 ## Fonctionnalités encore incomplètes
 
-- Email, SMS et push : les adaptateurs sont des placeholders. Seules les notifications internes sont validées. Un fournisseur et ses paramètres doivent être intégrés pour une livraison réelle.
+- Email métier : file SQL durable et worker SMTP compatibles Mailjet, désactivés par défaut ; clés privées, expéditeur validé et essai réel restent nécessaires. Voir `EMAIL_NOTIFICATIONS.md`. SMS et push restent à intégrer.
 - Récupération citoyenne : liens à usage unique, expiration, limitation des demandes, révocation des anciennes sessions et formulaires opérationnels. Courrier privé en développement ; transport SMTP préparé mais livraison réelle à configurer et valider. Voir `PASSWORD_RECOVERY.md`.
 - Paiement : rapprochement obligatoire avec une transaction du registre, confirmée manuellement par un administrateur ou superviseur. La vérification auprès des opérateurs et les webhooks restent à intégrer.
 - Documents : génération HTML, sans PDF ni signature numérique officielle.

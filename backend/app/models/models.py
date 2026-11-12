@@ -365,6 +365,8 @@ class Notification(Base):
     """Notifications envoyées aux citoyens sur leurs demandes."""
     __tablename__ = "notifications"
 
+    email_delivery = relationship("NotificationEmail", cascade="all, delete-orphan", uselist=False)
+
     id               = Column(String(36), primary_key=True, default=new_uuid)
     compte_id        = Column(Integer, ForeignKey("comptes_citoyens.id"), nullable=False, index=True)
     demande_id       = Column(String(36), ForeignKey("demandes_service.id"), nullable=True, index=True)
@@ -509,3 +511,19 @@ class SyncChange(Base):
 
 # Install ORM change tracking for online as well as offline mutations.
 from app.core import sync_tracking
+
+
+class NotificationEmail(Base):
+    """Transactional email outbox; provider I/O is performed only by the worker."""
+    __tablename__ = 'notification_emails'
+    id = Column(String(36), primary_key=True, default=new_uuid)
+    notification_id = Column(String(36), ForeignKey('notifications.id', ondelete='CASCADE'), nullable=False, unique=True)
+    recipient = Column(String(200), nullable=False)
+    status = Column(String(20), nullable=False, default='pending')
+    attempts = Column(Integer, nullable=False, default=0)
+    next_attempt_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    lease_token = Column(String(36), nullable=True)
+    lease_until = Column(DateTime, nullable=True)
+    last_error = Column(String(50), nullable=True)
+    sent_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

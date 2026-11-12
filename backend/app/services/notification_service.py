@@ -9,7 +9,8 @@ from enum import Enum
 
 from sqlalchemy.orm import Session
 
-from app.models.models import Notification, CompteCitoyen, DemandeService
+from app.models.models import Notification, CompteCitoyen, DemandeService, NotificationEmail
+from app.core.config import get_settings
 
 
 class TypeNotification(str, Enum):
@@ -64,7 +65,7 @@ class NotificationService:
         type_notif,
         demande: DemandeService = None,
         via_email: bool = True,
-        via_sms: bool = True,
+        via_sms: bool = False,
         via_push: bool = False,
         custom_message: str = None,
         commit: bool = True,
@@ -74,6 +75,11 @@ class NotificationService:
         if isinstance(type_notif, str):
             type_notif = TypeNotification(type_notif)
 
+        if via_sms or via_push:
+            raise ValueError("Transport SMS/push non configuré")
+        settings = get_settings()
+        via_email = bool(via_email and settings.notification_email_enabled
+                         and settings.email_backend != 'disabled' and compte_citoyen.email)
         template = NotificationService.TEMPLATES.get(type_notif, {})
         titre = template.get("titre", "Notification")
         if demande:
@@ -95,7 +101,7 @@ class NotificationService:
         db.add(notif)
         db.flush()
         
-        # Déclencher l'envoi (async en production)
+        # Enqueue in the business transaction; never contact a provider here.
         NotificationService.send_notification(db, notif, compte_citoyen)
         
         if commit:
@@ -104,26 +110,9 @@ class NotificationService:
 
     @staticmethod
     def send_notification(db: Session, notif: Notification, compte: CompteCitoyen):
-        """Envoie la notification par ses canaux."""
-        
-        if notif.via_email and compte.email:
-            # TODO: Intégrer SendGrid / AWS SES / Mailgun
-            # email_id = send_email_notification(compte.email, notif.titre, notif.message)
-            # notif.email_id = email_id
-            pass
-        
-        if notif.via_sms and hasattr(compte.citoyen, 'telephone'):
-            # TODO: Intégrer Africa's Talking
-            # sms_id = send_sms_notification(compte.citoyen.telephone, notif.message)
-            # notif.sms_id = sms_id
-            pass
-        
-        if notif.via_push:
-            # TODO: Intégrer Firebase Cloud Messaging / OneSignal
-            # push_id = send_push_notification(compte.id, notif.titre, notif.message)
-            # notif.push_id = push_id
-            pass
-        
+        """Ensure one durable email job per notification, without sending it."""
+        if notif.via_email and notif.email_delivery is None:
+            notif.email_delivery = NotificationEmail(recipient=compte.email)
         db.flush()
 
     @staticmethod

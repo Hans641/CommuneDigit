@@ -188,3 +188,14 @@ La migration `0004` ajoute les jetons à usage unique et les limites de demandes
 ## Journal de synchronisation
 
 La migration `0005` ajoute les versions serveur, reçus et journal de changements. Arrêter tous les processus d’écriture avant application, puis redémarrer les workers pour activer le suivi ORM. Voir [OFFLINE_SYNC.md](backend/OFFLINE_SYNC.md). Les écritures SQL externes/en masse ne doivent pas contourner ce suivi. Le raccordement du cache et de la file mobile est décrit dans [mobile/README.md](mobile/README.md) ; la validation sur appareil reste à effectuer.
+
+
+## Emails métier et worker Mailjet
+
+La migration `0006` ajoute une file d'envoi durable. Après mise à jour du code,
+exécuter `alembic upgrade head` avant de redémarrer l'API et les workers.
+Les emails métier restent désactivés tant que `NOTIFICATION_EMAIL_ENABLED=false`.
+Pour les activer, configurer Mailjet dans les variables privées, valider l'expéditeur,
+puis superviser `python -m app.email_worker` depuis `backend` avec la même base que
+l'API. Voir [EMAIL_NOTIFICATIONS.md](backend/EMAIL_NOTIFICATIONS.md) pour TLS,
+les reprises, les contrôles et les limites de livraison. SMS et push restent à intégrer.
