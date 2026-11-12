@@ -13,7 +13,9 @@ from app.core.security import acte_integrity_hash
 from app.services.sync_service import utc
 from app.models.models import ActeEtatCivil, Agent
 from app.schemas.schemas import ActeCreate, ActeOut, ActeUpdate
-from app.services.request_policy import OPERATORS, APPROVERS
+from app.services.request_policy import (
+    OPERATORS, APPROVERS, scoped_records, validate_record_territory, linked_citizen,
+)
 from app.services.audit_service import log_action
 from app.services.ref_service import gen_reference
 
@@ -28,9 +30,9 @@ def list_actes(
     skip:       int = Query(0, ge=0),
     limit:      int = Query(50, ge=1, le=200),
     db:         Session = Depends(get_db),
-    _:          Agent = Depends(get_current_agent),
+    current:    Agent = Depends(get_current_agent),
 ):
-    query = db.query(ActeEtatCivil)
+    query = scoped_records(db, current, ActeEtatCivil)
     if type_acte:
         query = query.filter(ActeEtatCivil.type_acte == type_acte)
     if statut:
@@ -47,6 +49,13 @@ def create_acte(
     db:      Session = Depends(get_db),
     current: Agent = Depends(require_role(*OPERATORS)),
 ):
+    if body.citoyen_id:
+        citizen = linked_citizen(db, current, body.citoyen_id)
+        if body.fokontany_id is None:
+            body.fokontany_id = citizen.fokontany_id
+        elif body.fokontany_id != citizen.fokontany_id:
+            raise HTTPException(422, "Fokontany incompatible avec le citoyen")
+    body.fokontany_id = validate_record_territory(db, current, body.fokontany_id, default=True)
     # Générer référence unique
     reference = gen_reference("EC")
 
@@ -76,8 +85,8 @@ def create_acte(
 
 
 @router.get("/{acte_id}", response_model=ActeOut)
-def get_acte(acte_id: str, db: Session = Depends(get_db), _: Agent = Depends(get_current_agent)):
-    acte = db.query(ActeEtatCivil).filter(ActeEtatCivil.id == acte_id).first()
+def get_acte(acte_id: str, db: Session = Depends(get_db), current: Agent = Depends(get_current_agent)):
+    acte = scoped_records(db, current, ActeEtatCivil).filter(ActeEtatCivil.id == acte_id).first()
     if not acte:
         raise HTTPException(status_code=404, detail="Acte introuvable")
     return acte
@@ -91,7 +100,7 @@ def update_acte(
     db:      Session = Depends(get_db),
     current: Agent = Depends(require_role(*OPERATORS)),
 ):
-    acte = db.query(ActeEtatCivil).filter(ActeEtatCivil.id == acte_id).first()
+    acte = scoped_records(db, current, ActeEtatCivil).filter(ActeEtatCivil.id == acte_id).first()
     if not acte:
         raise HTTPException(status_code=404, detail="Acte introuvable")
 
@@ -125,7 +134,7 @@ def valider_acte(
     db:      Session = Depends(get_db),
     current: Agent = Depends(require_role(*APPROVERS)),
 ):
-    acte = db.query(ActeEtatCivil).filter(ActeEtatCivil.id == acte_id).first()
+    acte = scoped_records(db, current, ActeEtatCivil).filter(ActeEtatCivil.id == acte_id).first()
     if not acte:
         raise HTTPException(status_code=404, detail="Acte introuvable")
 
@@ -145,10 +154,11 @@ def valider_acte(
 
 
 @router.get("/stats/summary", summary="Résumé statistique des actes")
-def actes_stats(db: Session = Depends(get_db), _: Agent = Depends(get_current_agent)):
+def actes_stats(db: Session = Depends(get_db), current: Agent = Depends(get_current_agent)):
     from sqlalchemy import func
     stats = (
-        db.query(ActeEtatCivil.type_acte, ActeEtatCivil.statut, func.count(ActeEtatCivil.id))
+        scoped_records(db, current, ActeEtatCivil).with_entities(
+            ActeEtatCivil.type_acte, ActeEtatCivil.statut, func.count(ActeEtatCivil.id))
         .group_by(ActeEtatCivil.type_acte, ActeEtatCivil.statut)
         .all()
     )

@@ -29,7 +29,9 @@ from app.schemas.schemas import (
     SyncRequest, SyncResponse,
     TransactionCreate, TransactionOut,
 )
-from app.services.request_policy import scoped_requests, validate_transition, OPERATORS, APPROVERS
+from app.services.request_policy import (
+    scoped_requests, validate_transition, OPERATORS, APPROVERS, scoped_records, linked_citizen,
+)
 from app.services.audit_service import log_action
 from app.services.ref_service import gen_matricule, gen_reference, gen_idempotency_key
 
@@ -118,9 +120,9 @@ def list_certificats(
     skip: int = 0, limit: int = 50,
     statut: Optional[str] = None,
     type_cert: Optional[str] = None,
-    db: Session = Depends(get_db), _: Agent = Depends(get_current_agent),
+    db: Session = Depends(get_db), current: Agent = Depends(get_current_agent),
 ):
-    q = db.query(Certificat)
+    q = scoped_records(db, current, Certificat)
     if statut:
         q = q.filter(Certificat.statut == statut)
     if type_cert:
@@ -133,6 +135,7 @@ def create_certificat(
     body: CertificatCreate, request: Request,
     db: Session = Depends(get_db), current: Agent = Depends(require_role(*OPERATORS)),
 ):
+    linked_citizen(db, current, body.citoyen_id)
     prix = body.prix if body.prix > 0 else TARIFS_CERT.get(body.type_cert, 0)
     cert = Certificat(
         reference=gen_reference("CRT"),
@@ -160,7 +163,7 @@ def update_certificat(
     cert_id: str, body: CertificatUpdate, request: Request,
     db: Session = Depends(get_db), current: Agent = Depends(require_role(*OPERATORS)),
 ):
-    cert = db.query(Certificat).filter(Certificat.id == cert_id).first()
+    cert = scoped_records(db, current, Certificat).filter(Certificat.id == cert_id).first()
     if not cert:
         raise HTTPException(status_code=404, detail="Certificat introuvable")
     if body.statut is not None and current.role not in APPROVERS:
@@ -180,7 +183,7 @@ def delivrer(
     cert_id: str, request: Request,
     db: Session = Depends(get_db), current: Agent = Depends(require_role(*APPROVERS)),
 ):
-    cert = db.query(Certificat).filter(Certificat.id == cert_id).first()
+    cert = scoped_records(db, current, Certificat).filter(Certificat.id == cert_id).first()
     if not cert:
         raise HTTPException(status_code=404, detail="Certificat introuvable")
     cert.statut = "Délivré"

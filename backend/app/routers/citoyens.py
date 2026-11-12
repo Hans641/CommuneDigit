@@ -10,7 +10,9 @@ from app.core.config import get_db
 from app.core.deps import get_current_agent, get_client_ip, require_role
 from app.models.models import Agent, Citoyen
 from app.schemas.schemas import CitoyenCreate, CitoyenOut, CitoyenUpdate
-from app.services.request_policy import OPERATORS, APPROVERS
+from app.services.request_policy import (
+    OPERATORS, scoped_records, validate_record_territory,
+)
 from app.services.audit_service import log_action
 
 router = APIRouter(prefix="/citoyens", tags=["Citoyens"])
@@ -24,9 +26,9 @@ def list_citoyens(
     skip:        int = Query(0, ge=0),
     limit:       int = Query(50, ge=1, le=200),
     db:          Session = Depends(get_db),
-    _:           Agent = Depends(get_current_agent),
+    current:     Agent = Depends(get_current_agent),
 ):
-    query = db.query(Citoyen)
+    query = scoped_records(db, current, Citoyen)
     if is_active is not None:
         query = query.filter(Citoyen.is_active == is_active)
     if fokontany_id:
@@ -48,6 +50,7 @@ def create_citoyen(
     db:      Session = Depends(get_db),
     current: Agent = Depends(require_role(*OPERATORS)),
 ):
+    body.fokontany_id = validate_record_territory(db, current, body.fokontany_id, default=True)
     # Vérifier unicité CIN
     if body.cin:
         existing = db.query(Citoyen).filter(Citoyen.cin == body.cin).first()
@@ -75,9 +78,9 @@ def create_citoyen(
 def get_citoyen(
     citoyen_id: str,
     db:         Session = Depends(get_db),
-    _:          Agent = Depends(get_current_agent),
+    current:    Agent = Depends(get_current_agent),
 ):
-    citoyen = db.query(Citoyen).filter(Citoyen.id == citoyen_id).first()
+    citoyen = scoped_records(db, current, Citoyen).filter(Citoyen.id == citoyen_id).first()
     if not citoyen:
         raise HTTPException(status_code=404, detail="Citoyen introuvable")
     return citoyen
@@ -89,12 +92,14 @@ def update_citoyen(
     body:       CitoyenUpdate,
     request:    Request,
     db:         Session = Depends(get_db),
-    current:    Agent = Depends(get_current_agent),
+    current:    Agent = Depends(require_role(*OPERATORS)),
 ):
-    citoyen = db.query(Citoyen).filter(Citoyen.id == citoyen_id).first()
+    citoyen = scoped_records(db, current, Citoyen).filter(Citoyen.id == citoyen_id).first()
     if not citoyen:
         raise HTTPException(status_code=404, detail="Citoyen introuvable")
 
+    if body.fokontany_id is not None:
+        validate_record_territory(db, current, body.fokontany_id)
     for field, val in body.model_dump(exclude_none=True).items():
         setattr(citoyen, field, val)
 
@@ -114,9 +119,9 @@ def delete_citoyen(
     citoyen_id: str,
     request:    Request,
     db:         Session = Depends(get_db),
-    current:    Agent = Depends(get_current_agent),
+    current:    Agent = Depends(require_role(*OPERATORS)),
 ):
-    citoyen = db.query(Citoyen).filter(Citoyen.id == citoyen_id).first()
+    citoyen = scoped_records(db, current, Citoyen).filter(Citoyen.id == citoyen_id).first()
     if not citoyen:
         raise HTTPException(status_code=404, detail="Citoyen introuvable")
 
