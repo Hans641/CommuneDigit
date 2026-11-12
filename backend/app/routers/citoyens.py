@@ -62,15 +62,20 @@ def create_citoyen(
 
     citoyen = Citoyen(**body.model_dump())
     db.add(citoyen)
-    db.commit()
-    db.refresh(citoyen)
 
+    db.flush()
     log_action(
-        db, action="CREATE", entite="Citoyen",
+        db,
+        action="CREATE",
+        entite="Citoyen",
         entite_id=citoyen.id,
         detail=f"Enregistrement citoyen — {citoyen.nom} {citoyen.prenom}",
-        agent_id=current.id, ip_address=get_client_ip(request),
+        agent_id=current.id,
+        ip_address=get_client_ip(request),
+        commit=False,
     )
+    db.commit()
+    db.refresh(citoyen)
     return citoyen
 
 
@@ -103,14 +108,19 @@ def update_citoyen(
     for field, val in body.model_dump(exclude_none=True).items():
         setattr(citoyen, field, val)
 
+    db.flush()
+    log_action(
+        db,
+        action="UPDATE",
+        entite="Citoyen",
+        entite_id=citoyen_id,
+        detail=f"Mise à jour — {citoyen.nom} {citoyen.prenom}",
+        agent_id=current.id,
+        ip_address=get_client_ip(request),
+        commit=False,
+    )
     db.commit()
     db.refresh(citoyen)
-
-    log_action(
-        db, action="UPDATE", entite="Citoyen", entite_id=citoyen_id,
-        detail=f"Mise à jour — {citoyen.nom} {citoyen.prenom}",
-        agent_id=current.id, ip_address=get_client_ip(request),
-    )
     return citoyen
 
 
@@ -126,11 +136,17 @@ def delete_citoyen(
         raise HTTPException(status_code=404, detail="Citoyen introuvable")
 
     citoyen.is_active = False   # Soft delete
-    db.commit()
 
+    db.flush()
     log_action(
-        db, action="DELETE", entite="Citoyen", entite_id=citoyen_id,
+        db,
+        action="DELETE",
+        entite="Citoyen",
+        entite_id=citoyen_id,
         detail=f"Désactivation — {citoyen.nom} {citoyen.prenom}",
-        agent_id=current.id, ip_address=get_client_ip(request),
+        agent_id=current.id,
+        ip_address=get_client_ip(request),
         niveau_risque="Élevé",
+        commit=False,
     )
+    db.commit()

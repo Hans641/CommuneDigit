@@ -12,6 +12,7 @@ from app.core.security import sha256_hash
 
 def log_action(
     db: Session,
+    *,
     action: str,
     entite: str,
     detail: str,
@@ -23,7 +24,8 @@ def log_action(
 ) -> AuditLog:
     """
     Enregistre une action dans le journal d'audit immuable.
-    Le hash SHA-256 garantit l'intégrité de chaque entrée.
+    Avec commit=False, le caller committe l'audit et l'écriture métier ensemble.
+    Une fermeture de session sans commit annule les deux écritures.
     """
     # Construire la chaîne à hasher
     raw = f"{action}|{entite}|{entite_id}|{detail}|{agent_id}|{datetime.utcnow().isoformat()}"

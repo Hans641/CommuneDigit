@@ -147,14 +147,20 @@ def create_certificat(
         statut="En attente",
     )
     db.add(cert)
+
+    db.flush()
+    log_action(
+        db,
+        action="CREATE",
+        entite="Certificat",
+        entite_id=cert.id,
+        detail=f"Nouveau certificat {body.type_cert} — {cert.reference}",
+        agent_id=current.id,
+        ip_address=get_client_ip(request),
+        commit=False,
+    )
     db.commit()
     db.refresh(cert)
-
-    log_action(
-        db, action="CREATE", entite="Certificat", entite_id=cert.id,
-        detail=f"Nouveau certificat {body.type_cert} — {cert.reference}",
-        agent_id=current.id, ip_address=get_client_ip(request),
-    )
     return cert
 
 
@@ -171,10 +177,19 @@ def update_certificat(
     for k, v in body.model_dump(exclude_none=True).items():
         setattr(cert, k, v)
     cert.updated_at = datetime.utcnow()
+    db.flush()
+    log_action(
+        db,
+        action="UPDATE",
+        entite="Certificat",
+        entite_id=cert_id,
+        detail=f"Mise à jour certificat {cert.reference}",
+        agent_id=current.id,
+        ip_address=get_client_ip(request),
+        commit=False,
+    )
     db.commit()
     db.refresh(cert)
-    log_action(db, "UPDATE", "Certificat", cert_id,
-               f"Mise à jour certificat {cert.reference}", current.id, get_client_ip(request))
     return cert
 
 
@@ -188,10 +203,19 @@ def delivrer(
         raise HTTPException(status_code=404, detail="Certificat introuvable")
     cert.statut = "Délivré"
     cert.updated_at = datetime.utcnow()
+    db.flush()
+    log_action(
+        db,
+        action="VALIDATE",
+        entite="Certificat",
+        entite_id=cert_id,
+        detail=f"Délivrance {cert.type_cert} — {cert.reference}",
+        agent_id=current.id,
+        ip_address=get_client_ip(request),
+        commit=False,
+    )
     db.commit()
     db.refresh(cert)
-    log_action(db, "VALIDATE", "Certificat", cert_id,
-               f"Délivrance {cert.type_cert} — {cert.reference}", current.id, get_client_ip(request))
     return cert
 
 
@@ -219,11 +243,19 @@ def create_alerte(
 ):
     alerte = Alerte(**body.model_dump(), created_by=current.id)
     db.add(alerte)
+    db.flush()
+    log_action(
+        db,
+        action="ALERT",
+        entite="Alerte",
+        entite_id=str(alerte.id),
+        detail=f"Publication alerte {body.type_alerte} — {body.titre}",
+        agent_id=current.id,
+        ip_address=get_client_ip(request),
+        commit=False,
+    )
     db.commit()
     db.refresh(alerte)
-    log_action(db, "ALERT", "Alerte", str(alerte.id),
-               f"Publication alerte {body.type_alerte} — {body.titre}",
-               current.id, get_client_ip(request))
     return alerte
 
 
@@ -271,11 +303,19 @@ def create_agent(
         hashed_password=hash_password(body.password),
     )
     db.add(agent)
+    db.flush()
+    log_action(
+        db,
+        action="CREATE",
+        entite="Agent",
+        entite_id=str(agent.id),
+        detail=f"Création agent {matricule} — {body.nom} {body.prenom}",
+        agent_id=current.id,
+        ip_address=get_client_ip(request),
+        commit=False,
+    )
     db.commit()
     db.refresh(agent)
-    log_action(db, "CREATE", "Agent", str(agent.id),
-               f"Création agent {matricule} — {body.nom} {body.prenom}",
-               current.id, get_client_ip(request))
     return agent
 
 
@@ -289,10 +329,19 @@ def update_agent(
         raise HTTPException(status_code=404, detail="Agent introuvable")
     for k, v in body.model_dump(exclude_none=True).items():
         setattr(agent, k, v)
+    db.flush()
+    log_action(
+        db,
+        action="UPDATE",
+        entite="Agent",
+        entite_id=str(agent_id),
+        detail=f"Mise à jour agent {agent.matricule}",
+        agent_id=current.id,
+        ip_address=get_client_ip(request),
+        commit=False,
+    )
     db.commit()
     db.refresh(agent)
-    log_action(db, "UPDATE", "Agent", str(agent_id),
-               f"Mise à jour agent {agent.matricule}", current.id, get_client_ip(request))
     return agent
 
 
@@ -307,9 +356,19 @@ def disable_agent(
     if agent.id == current.id:
         raise HTTPException(status_code=400, detail="Vous ne pouvez pas désactiver votre propre compte")
     agent.is_active = False
+    db.flush()
+    log_action(
+        db,
+        action="DELETE",
+        entite="Agent",
+        entite_id=str(agent_id),
+        detail=f"Désactivation agent {agent.matricule}",
+        agent_id=current.id,
+        ip_address=get_client_ip(request),
+        niveau_risque="Élevé",
+        commit=False,
+    )
     db.commit()
-    log_action(db, "DELETE", "Agent", str(agent_id),
-               f"Désactivation agent {agent.matricule}", current.id, get_client_ip(request), "Élevé")
 
 
 # ══════════════════════════════════════════════════════
