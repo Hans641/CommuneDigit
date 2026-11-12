@@ -25,7 +25,7 @@ La validation porte sur le parcours corrigé, pas sur une certification exhausti
 
 ## Traitement sécurisé et rapprochement des encaissements
 
-- Lecture des demandes et justificatifs : administrateur, superviseur et ministère au niveau global ; agent fokontany uniquement pour les demandes dont le citoyen est rattaché au même fokontany. Un citoyen sans rattachement doit être traité par un responsable global. Cette restriction territoriale concerne les demandes citoyennes ; les anciens CRUD citoyens/actes/certificats restent à aligner sur ce périmètre.
+- Lecture des demandes et justificatifs : administrateur, superviseur et ministère au niveau global ; agent fokontany uniquement pour les demandes dont le citoyen est rattaché au même fokontany. Un citoyen sans rattachement doit être traité par un responsable global. Les CRUD citoyens/actes/certificats appliquent également un périmètre territorial (voir ci-dessous).
 - Ministère : lecture, sans mutations. Administration des comptes réservée à l'administrateur. Encaissements manuels réservés aux administrateurs/superviseurs. La validation d'actes et délivrance de certificats nécessitent aussi ces rôles.
 - Transitions : Soumise → En traitement ou Rejetée ; En traitement → Approuvée ou Rejetée ; Approuvée → Prête. Prête et Rejetée sont terminales. Répéter le même statut est sans effet ; aucune réouverture implicite.
 - Le document est produit automatiquement au passage à Prête, avec paiement rapproché obligatoire pour un service payant. Le citoyen peut aussi le générer après approbation, sous la même condition de paiement. Une URL arbitraire de document final n'est plus acceptée.
@@ -42,4 +42,13 @@ Voir `DEPLOIEMENT.md` et `.env.example`. `PAYMENT_DEMO_ENABLED=true` active les 
 
 ## Synchronisation hors connexion
 
-Le backend dispose d’un push validé avec reçus durables et d’un pull paginé par journal transactionnel. Les droits fokontany, conflits de dates et écritures concurrentes sont contrôlés. La migration `0005` inscrit également les modifications en ligne et les transferts de périmètre. Voir `OFFLINE_SYNC.md`. Le client mobile dispose maintenant du stockage chiffré et de la file de renvoi (voir `mobile/README.md`). La validation native sur appareil, la rétention du journal, les tests de charge et l’alignement territorial complet des anciens CRUD restent à traiter.
+Le backend dispose d’un push validé avec reçus durables et d’un pull paginé par journal transactionnel. Les droits fokontany, conflits de dates et écritures concurrentes sont contrôlés. La migration `0005` inscrit également les modifications en ligne et les transferts de périmètre. Voir `OFFLINE_SYNC.md`. Le client mobile dispose maintenant du stockage chiffré et de la file de renvoi (voir `mobile/README.md`). La validation native sur appareil, la rétention du journal, les tests de charge restent à traiter.
+
+
+## Périmètre des anciens CRUD citoyens, actes et certificats
+
+- Administrateur et superviseur : lecture et écriture globales. Ministère MID : lecture globale uniquement. Validation des actes et délivrance des certificats réservées aux responsables.
+- Agent Fokontany : lecture et modification des citoyens et actes portant son `fokontany_id` ; certificats accessibles via le fokontany du citoyen rattaché. Listes, accès individuels et statistiques des actes suivent le même filtre. Un dossier hors périmètre répond 404.
+- Une affectation absente ou correspondant à plusieurs fokontany ne donne aucun accès (403). Le rattachement actuel des agents repose encore sur un nom de fokontany ; migrer vers une clé étrangère serait une évolution distincte.
+- Lors d'une création par un agent local, le fokontany omis est celui de l'agent. Il ne peut pas écrire ou transférer vers un autre fokontany. Un certificat local exige un citoyen rattaché accessible ; un acte lié à un citoyen doit porter le même fokontany. Les dossiers sans rattachement restent accessibles aux lecteurs globaux.
+- Tests de régression : `tests/test_record_permissions.py`. Les autres familles de routes (transactions, alertes, tableau de bord) ne sont pas modifiées par ce chantier. La concurrence PostgreSQL et l'atomicité de l'audit restent des chantiers distincts.
