@@ -51,4 +51,26 @@ Le backend dispose d’un push validé avec reçus durables et d’un pull pagin
 - Agent Fokontany : lecture et modification des citoyens et actes portant son `fokontany_id` ; certificats accessibles via le fokontany du citoyen rattaché. Listes, accès individuels et statistiques des actes suivent le même filtre. Un dossier hors périmètre répond 404.
 - Une affectation absente ou correspondant à plusieurs fokontany ne donne aucun accès (403). Le rattachement actuel des agents repose encore sur un nom de fokontany ; migrer vers une clé étrangère serait une évolution distincte.
 - Lors d'une création par un agent local, le fokontany omis est celui de l'agent. Il ne peut pas écrire ou transférer vers un autre fokontany. Un certificat local exige un citoyen rattaché accessible ; un acte lié à un citoyen doit porter le même fokontany. Les dossiers sans rattachement restent accessibles aux lecteurs globaux.
-- Tests de régression : `tests/test_record_permissions.py`. Les autres familles de routes (transactions, alertes, tableau de bord) ne sont pas modifiées par ce chantier. La concurrence PostgreSQL et l'atomicité de l'audit restent des chantiers distincts.
+- Tests de régression : `tests/test_record_permissions.py`. Les autres familles de routes (transactions, alertes, tableau de bord) ne sont pas modifiées par ce chantier. La concurrence PostgreSQL et les intégrations externes restent des chantiers distincts.
+
+
+## Atomicité des écritures auditées
+
+Les créations, modifications et désactivations déjà auditées des citoyens, actes,
+certificats et agents, la publication d'alertes et la mise à jour de `last_login`
+partagent désormais une seule transaction avec leur entrée `AuditLog`. Un échec
+avant validation annule aussi les changements du journal de synchronisation.
+Les encaissements et la synchronisation conservent leur transaction existante.
+
+`log_action` exige des arguments nommés après la session. Avec `commit=False`,
+il ajoute et flush l'audit sans valider la transaction ; la route committe ensuite.
+Les événements autonomes LOGIN_FAIL et LOGOUT conservent leur propre commit.
+Les appels historiques inversant identifiant, détail et agent sont corrigés pour
+les nouvelles entrées ; les anciennes données ne sont pas réécrites.
+
+`tests/test_atomic_audit.py` couvre 15 opérations : succès, échec à l'insertion
+de l'audit et échec avant commit. Les contrôles relisent les données avec une
+nouvelle session et vérifient aussi l'absence de changement du journal de sync.
+Validation locale sur SQLite ; cette suite ne démontre pas la concurrence PostgreSQL.
+Ce chantier ne généralise pas l'audit aux opérations qui n'en avaient pas et
+ne rend pas transactionnels les fichiers ou les envois externes.

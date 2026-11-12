@@ -52,17 +52,22 @@ def login(
 
     # Mettre à jour last_login
     agent.last_login = datetime.utcnow()
-    db.commit()
 
     # Créer le token
     token = create_access_token({"sub": str(agent.id), "role": agent.role})
 
     # Audit
+    db.flush()
     log_action(
-        db, action="LOGIN", entite="Session",
+        db,
+        action="LOGIN",
+        entite="Session",
         detail=f"Connexion réussie — {agent.nom} {agent.prenom} ({agent.role})",
-        agent_id=agent.id, ip_address=get_client_ip(request),
+        agent_id=agent.id,
+        ip_address=get_client_ip(request),
+        commit=False,
     )
+    db.commit()
 
     return TokenResponse(
         access_token=token,

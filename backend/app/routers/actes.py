@@ -73,14 +73,20 @@ def create_acte(
     )
     acte.hash_sha256 = acte_integrity_hash(acte)
     db.add(acte)
+
+    db.flush()
+    log_action(
+        db,
+        action="CREATE",
+        entite="ActeEtatCivil",
+        entite_id=acte.id,
+        detail=f"Nouvel acte {body.type_acte} — {body.nom_concerne} — {reference}",
+        agent_id=current.id,
+        ip_address=get_client_ip(request),
+        commit=False,
+    )
     db.commit()
     db.refresh(acte)
-
-    log_action(
-        db, action="CREATE", entite="ActeEtatCivil", entite_id=acte.id,
-        detail=f"Nouvel acte {body.type_acte} — {body.nom_concerne} — {reference}",
-        agent_id=current.id, ip_address=get_client_ip(request),
-    )
     return acte
 
 
@@ -116,14 +122,20 @@ def update_acte(
 
     acte.updated_at = datetime.utcnow()
     acte.last_update = datetime.utcnow()
+
+    db.flush()
+    log_action(
+        db,
+        action="UPDATE",
+        entite="ActeEtatCivil",
+        entite_id=acte_id,
+        detail=f"Mise à jour acte {acte.reference} — statut: {acte.statut}",
+        agent_id=current.id,
+        ip_address=get_client_ip(request),
+        commit=False,
+    )
     db.commit()
     db.refresh(acte)
-
-    log_action(
-        db, action="UPDATE", entite="ActeEtatCivil", entite_id=acte_id,
-        detail=f"Mise à jour acte {acte.reference} — statut: {acte.statut}",
-        agent_id=current.id, ip_address=get_client_ip(request),
-    )
     return acte
 
 
@@ -142,14 +154,20 @@ def valider_acte(
     acte.is_validated = True
     acte.last_update = datetime.utcnow()
     acte.updated_at = datetime.utcnow()
+
+    db.flush()
+    log_action(
+        db,
+        action="VALIDATE",
+        entite="ActeEtatCivil",
+        entite_id=acte_id,
+        detail=f"Validation acte {acte.reference} — {acte.nom_concerne}",
+        agent_id=current.id,
+        ip_address=get_client_ip(request),
+        commit=False,
+    )
     db.commit()
     db.refresh(acte)
-
-    log_action(
-        db, action="VALIDATE", entite="ActeEtatCivil", entite_id=acte_id,
-        detail=f"Validation acte {acte.reference} — {acte.nom_concerne}",
-        agent_id=current.id, ip_address=get_client_ip(request),
-    )
     return acte
 
 
