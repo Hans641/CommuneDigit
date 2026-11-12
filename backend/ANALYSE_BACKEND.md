@@ -32,7 +32,7 @@ La validation porte sur le parcours corrigé, pas sur une certification exhausti
 - Encaissement : un responsable vérifie le paiement réel hors application et enregistre une transaction via POST /api/transactions/ avec citoyen_id, montant, type_paiement, idempotency_key et référence externe de justificatif. La route citoyenne /payer attend la référence **interne TXN** retournée par ce registre. Elle ne confirme jamais une simple référence MVola inventée par le client.
 - Une transaction ne règle qu'une demande, et inversement (contraintes uniques de la nouvelle table paiements_demandes). Même référence et même demande : réponse idempotente. Mauvais montant, mauvais citoyen, transaction déjà utilisée ou absence de rapprochement : refus.
 - Les anciens statuts Payé sans rapprochement ne permettent plus la délivrance : ils doivent être rapprochés avec une transaction vérifiée. Les services gratuits ne demandent pas de paiement.
-- Appliquer les migrations Alembic avant redémarrage. Les migrations sont validées sur SQLite et PostgreSQL 16 ; les tests de concurrence métier restent à mettre en place. Les verrous de lignes SQL ne sont effectifs que sur une base qui les prend en charge.
+- Appliquer les migrations Alembic avant redémarrage. Les migrations et les scénarios de concurrence des paiements sont validés sur PostgreSQL 16 ; voir `CONCURRENCY_TESTS.md`. Les verrous de lignes SQL ne sont effectifs que sur une base qui les prend en charge.
 
 
 ## Mode démo et configuration de production
@@ -51,7 +51,7 @@ Le backend dispose d’un push validé avec reçus durables et d’un pull pagin
 - Agent Fokontany : lecture et modification des citoyens et actes portant son `fokontany_id` ; certificats accessibles via le fokontany du citoyen rattaché. Listes, accès individuels et statistiques des actes suivent le même filtre. Un dossier hors périmètre répond 404.
 - Une affectation absente ou correspondant à plusieurs fokontany ne donne aucun accès (403). Le rattachement actuel des agents repose encore sur un nom de fokontany ; migrer vers une clé étrangère serait une évolution distincte.
 - Lors d'une création par un agent local, le fokontany omis est celui de l'agent. Il ne peut pas écrire ou transférer vers un autre fokontany. Un certificat local exige un citoyen rattaché accessible ; un acte lié à un citoyen doit porter le même fokontany. Les dossiers sans rattachement restent accessibles aux lecteurs globaux.
-- Tests de régression : `tests/test_record_permissions.py`. Les autres familles de routes (transactions, alertes, tableau de bord) ne sont pas modifiées par ce chantier. La concurrence PostgreSQL et les intégrations externes restent des chantiers distincts.
+- Tests de régression : `tests/test_record_permissions.py`. Les autres familles de routes (transactions, alertes, tableau de bord) ne sont pas modifiées par ce chantier. Les intégrations externes restent un chantier distinct. La validation de concurrence PostgreSQL est décrite dans `CONCURRENCY_TESTS.md`.
 
 
 ## Atomicité des écritures auditées
@@ -71,6 +71,6 @@ les nouvelles entrées ; les anciennes données ne sont pas réécrites.
 `tests/test_atomic_audit.py` couvre 15 opérations : succès, échec à l'insertion
 de l'audit et échec avant commit. Les contrôles relisent les données avec une
 nouvelle session et vérifient aussi l'absence de changement du journal de sync.
-Validation locale sur SQLite ; cette suite ne démontre pas la concurrence PostgreSQL.
+La suite d’atomicité utilise SQLite ; les tests de concurrence PostgreSQL sont décrits séparément dans `CONCURRENCY_TESTS.md`.
 Ce chantier ne généralise pas l'audit aux opérations qui n'en avaient pas et
 ne rend pas transactionnels les fichiers ou les envois externes.
